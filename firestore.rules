@@ -1,0 +1,106 @@
+rules_version = '2';
+
+// Seção 5.3 e RNF-13: jogador só escreve entradas com o próprio UID, entrada imutável,
+// nada em partida finalizada, admin por lista. Honestidade de horário e GPS não é garantida.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function logado() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return logado() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // Aceita balançadas com a partida ativa ou pausada (as da pausa ficam, mas não pontuam: RF-37).
+    function partidaAberta(pid) {
+      return get(/databases/$(database)/documents/partidas/$(pid)).data.estado in ['ativa', 'pausada'];
+    }
+
+    // Reenvio idêntico → no-op aceito (RF-35).
+    function semMudanca() {
+      return request.resource.data.diff(resource.data).affectedKeys().size() == 0;
+    }
+
+    function entradaValida(k) {
+      let e = request.resource.data.entradas[k];
+      let campos = ['uid', 'dispositivoId', 'v', 't', 'fonte', 'lat', 'lng', 'accuracy', 'recebidoEm', 'anulada'];
+      return e.keys().hasAll(campos) && e.keys().hasOnly(campos)
+        && e.uid == request.auth.uid
+        && e.dispositivoId is string && e.dispositivoId.matches('[A-Za-z0-9-]{8,64}')
+        && e.v is int && e.v >= 0
+        && k == e.uid + '_' + e.dispositivoId + '_' + string(e.v)
+        && e.t is number
+        && e.fonte in ['monotonica', 'relogio-corrigido']
+        && e.lat is number && e.lng is number && e.accuracy is number
+        && e.recebidoEm == request.time
+        && e.anulada == false;
+    }
+
+    function soAdicionouMinhaEntrada() {
+      let d = request.resource.data.entradas.diff(resource.data.entradas);
+      // Set não tem índice nem toList(): a chave nova sai da lista de chaves do mapa.
+      let novas = request.resource.data.entradas.keys().removeAll(resource.data.entradas.keys());
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['entradas'])
+        && d.changedKeys().size() == 0 && d.removedKeys().size() == 0
+        && d.addedKeys().size() == 1 && novas.size() == 1 && entradaValida(novas[0]);
+    }
+
+    match /config/{id} {
+      allow read: if logado();
+      allow write: if isAdmin();
+    }
+
+    match /admins/{uid} {
+      allow get: if logado() && request.auth.uid == uid;
+      allow list, write: if false;
+    }
+
+    match /pontos/{pontoId} {
+      allow read: if logado();
+      allow write: if isAdmin();
+    }
+
+    match /partidas/{pid} {
+      allow read: if logado();
+      allow write: if isAdmin();
+
+      match /filas/{pontoId} {
+        allow read: if logado();
+        allow create, delete: if isAdmin();
+        allow update: if isAdmin()
+          || (logado() && partidaAberta(pid) && (semMudanca() || soAdicionouMinhaEntrada()));
+      }
+    }
+
+    match /jogadores/{uid} {
+      allow read: if logado();
+      // RF-02: só cria o jogador junto com a reserva do apelido normalizado (mesma transação).
+      allow create: if logado() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['apelido', 'apelidoNormalizado', 'criadoEm', 'partidas'])
+        && request.resource.data.apelido is string
+        && request.resource.data.apelidoNormalizado is string
+        && request.resource.data.criadoEm == request.time
+        && request.resource.data.partidas == []
+        && getAfter(/databases/$(database)/documents/apelidos/$(request.resource.data.apelidoNormalizado)).data.uid == uid;
+      // O jogador só acrescenta partidas; o apelido muda só pelo admin (RF-57).
+      allow update: if isAdmin()
+        || (logado() && request.auth.uid == uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['partidas']));
+      allow delete: if isAdmin();
+    }
+
+    match /apelidos/{n} {
+      allow read: if logado();
+      allow create: if logado() && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['uid', 'apelido']);
+      allow update, delete: if isAdmin();
+    }
+
+    // Âncora de tempo (seção 7.2).
+    match /relogio/{uid} {
+      allow read, write: if logado() && request.auth.uid == uid;
+    }
+  }
+}

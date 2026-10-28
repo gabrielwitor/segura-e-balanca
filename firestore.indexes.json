@@ -1,0 +1,13 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "partidas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "estado", "order": "ASCENDING" },
+        { "fieldPath": "numero", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

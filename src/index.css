@@ -1,0 +1,103 @@
+@import 'tailwindcss';
+
+/* Paleta tirada das telas do design (canvas "Segura e Balança"). */
+@theme {
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-display: 'Space Grotesk', 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* Jogador (escuro, legível ao sol: RNF-11) */
+  --color-noite: #0b1410;
+  --color-painel: #13211b;
+  --color-radar: #0f1c16;
+  --color-borda: #24372e;
+  --color-linha: #1b2b23;
+  --color-apagado: #2c3d34;
+  --color-texto: #e8f2ec;
+  --color-suave: #9fb5a9;
+  --color-fraco: #6b8578;
+  --color-verde: #43e08a;
+  --color-verde-claro: #7cf0b0;
+  --color-verde-tinta: #062012;
+  --color-quente: #ff7a45;
+  --color-quente-tinta: #1a0b04;
+  --color-morno: #3a2e10;
+  --color-morno-texto: #ffd98a;
+  --color-frio: #1b2a44;
+  --color-frio-texto: #bbd4ff;
+  --color-alerta: #ffc24b;
+  --color-alerta-fundo: #2a2312;
+  --color-alerta-borda: #5a4a1e;
+  --color-erro: #ff8a80;
+  --color-erro-fundo: #3a1a16;
+  --color-erro-borda: #7a3a30;
+  --color-erro-texto: #ffc4bb;
+
+  /* Admin (claro) */
+  --color-papel: #f7f5ef;
+  --color-tinta: #18211c;
+  --color-tinta-suave: #55615a;
+  --color-areia: #ece9e0;
+  --color-areia-borda: #d6d1c4;
+  --color-mata: #126b42;
+  --color-mata-escura: #0b4a2d;
+  --color-mata-clara: #ddefe4;
+  --color-perigo: #b42318;
+  --color-perigo-texto: #8c2a20;
+
+  --animate-varredura: varredura 4s linear infinite;
+  --animate-pulso: pulso 1.4s ease-out infinite;
+  --animate-onda: onda 0.9s ease-out forwards;
+}
+
+@keyframes varredura {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes pulso {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(1.25);
+    opacity: 0;
+  }
+}
+@keyframes onda {
+  0% {
+    transform: scale(0.3);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-varredura,
+  .animate-pulso,
+  .animate-spin {
+    animation: none;
+  }
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+body {
+  margin: 0;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+:focus-visible {
+  outline: 3px solid #43e08a;
+  outline-offset: 2px;
+}
+.leaflet-container {
+  font-family: var(--font-sans);
+}
