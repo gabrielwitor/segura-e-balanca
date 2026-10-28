@@ -28,6 +28,7 @@ export const preferencias = {
   definir(p: Partial<Prefs>) {
     prefs = { ...prefs, ...p };
     aplicarSessaoDeAudio();
+    manterMidiaAtiva();
     try {
       localStorage.setItem(CHAVE, JSON.stringify(prefs));
     } catch {
@@ -70,8 +71,59 @@ function aplicarSessaoDeAudio(): void {
   if (sessao) sessao.type = prefs.noSilencioso ? 'playback' : 'ambient';
 }
 
+const ehIos = () =>
+  typeof navigator !== 'undefined' && (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+
+/**
+ * iPhone: o Web Audio é "som ambiente", que a chave de silencioso corta, e no app instalado o
+ * audioSession "playback" nem sempre vale. Com um <audio> tocando (silêncio, em loop), a página
+ * entra na categoria de mídia, como o YouTube, e o Web Audio passa a tocar no silencioso.
+ */
+let fioMudo: HTMLAudioElement | null = null;
+
+function wavMudo(): string {
+  // 0,5 s de silêncio: 8 kHz, 8 bits, mono.
+  const n = 4000;
+  const b = new Uint8Array(44 + n);
+  const v = new DataView(b.buffer);
+  const txt = (o: number, t: string) => [...t].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+  txt(0, 'RIFF');
+  v.setUint32(4, 36 + n, true);
+  txt(8, 'WAVEfmt ');
+  v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true);
+  v.setUint16(22, 1, true);
+  v.setUint32(24, 8000, true);
+  v.setUint32(28, 8000, true);
+  v.setUint16(32, 1, true);
+  v.setUint16(34, 8, true);
+  txt(36, 'data');
+  v.setUint32(40, n, true);
+  b.fill(128, 44);
+  return URL.createObjectURL(new Blob([b], { type: 'audio/wav' }));
+}
+
+/** Liga ou desliga o <audio> mudo conforme o ajuste "Tocar no modo silencioso" e a tela visível. */
+function manterMidiaAtiva(): void {
+  if (!ehIos()) return;
+  const ligar = prefs.som && prefs.noSilencioso && document.visibilityState === 'visible';
+  if (!ligar) {
+    fioMudo?.pause();
+    return;
+  }
+  if (!fioMudo) {
+    fioMudo = new Audio(wavMudo());
+    fioMudo.loop = true;
+    fioMudo.setAttribute('playsinline', '');
+    document.addEventListener('visibilitychange', manterMidiaAtiva);
+  }
+  // Fora de um gesto o play() pode ser recusado: o próximo toque tenta de novo.
+  if (fioMudo.paused) void fioMudo.play().catch(() => {});
+}
+
 /** Precisa rodar dentro de um gesto (iOS). */
 export function destravarSom(): void {
+  manterMidiaAtiva();
   try {
     aplicarSessaoDeAudio();
     audio ??= new AudioContext();
@@ -262,7 +314,10 @@ export const feedback = {
   /** Botão "Testar" dos ajustes: som e vibração dentro do mesmo toque. */
   testar() {
     destravarSom();
-    tocar(() => [DO5, MI5, SOL5, DO6].forEach((f, i) => nota(f, i * 0.08, 0.4)));
+    // No iPhone o contexto só fica "running" quando o resume() termina: tocar na mesma hora sai mudo.
+    const arpejo = () => tocar(() => [DO5, MI5, SOL5, DO6].forEach((f, i) => nota(f, i * 0.08, 0.4)));
+    if (audio && audio.state !== 'running') void audio.resume().then(arpejo, () => {});
+    else arpejo();
     vibrar([200, 100, 300]);
   },
 };

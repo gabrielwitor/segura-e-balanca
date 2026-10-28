@@ -13,6 +13,7 @@ import { Cabecalho } from './Cabecalho';
 import { EstadoVazio } from './EstadoVazio';
 import { Balancou } from './Balancou';
 import { PermissaoNegada } from './PermissaoNegada';
+import { Sobreposicao } from './Tela';
 
 export const nomeDaPista = (p: Pick<PontoLocal, 'numero'>) => `Pista ${p.numero}`;
 
@@ -132,22 +133,26 @@ export function Radar({ uid, apelido, dados, sessao, irParaRanking, aoOcupar }: 
 
   if (guiaLocalizacao)
     return (
-      <div className="fixed inset-0 z-50 overflow-auto bg-noite">
-        <PermissaoNegada aoTentar={() => void pedirLocalizacao().then((r) => r !== 'negada' && setGuiaLocalizacao(false))} aoVerRanking={irParaRanking} />
-      </div>
+      <Sobreposicao>
+        <div className="fixed inset-0 z-50 overflow-auto bg-noite">
+          <PermissaoNegada aoTentar={() => void pedirLocalizacao().then((r) => r !== 'negada' && setGuiaLocalizacao(false))} aoVerRanking={irParaRanking} />
+        </div>
+      </Sobreposicao>
     );
 
   if (resultado)
     return (
-      <Balancou
-        chave={resultado}
-        dados={dados}
-        voltar={() => {
-          setResultado(null);
-          setAlvoId(null); // volta para a pista aberta mais perto
-        }}
-        irParaRanking={irParaRanking}
-      />
+      <Sobreposicao>
+        <Balancou
+          chave={resultado}
+          dados={dados}
+          voltar={() => {
+            setResultado(null);
+            setAlvoId(null); // volta para a pista aberta mais perto
+          }}
+          irParaRanking={irParaRanking}
+        />
+      </Sobreposicao>
     );
 
   return (
@@ -192,9 +197,15 @@ export function Radar({ uid, apelido, dados, sessao, irParaRanking, aoOcupar }: 
       <div className="grow" />
       {/* Quente (fora da área): as bordas da tela pulsam no ritmo do bipe. */}
       {!armado && faixaAtual === 'quente' && al !== 'dentro' && (
-        <div className="efeito-borda-quente pointer-events-none fixed inset-0 z-40 shadow-[inset_0_0_90px_24px_rgba(255,122,69,0.7)]" aria-hidden="true" />
+        <Sobreposicao>
+          <div className="efeito-borda-quente pointer-events-none fixed inset-0 z-40 shadow-[inset_0_0_90px_24px_rgba(255,122,69,0.7)]" aria-hidden="true" />
+        </Sobreposicao>
       )}
-      {!armado && transicoes.mudanca?.tipo === 'esfriou' && faixaAtual === 'frio' && <Esfriou key={transicoes.mudanca.n} />}
+      {!armado && transicoes.mudanca?.tipo === 'esfriou' && faixaAtual === 'frio' && (
+        <Sobreposicao>
+          <Esfriou key={transicoes.mudanca.n} />
+        </Sobreposicao>
+      )}
       {alvo && (
         <div className="relative flex shrink-0 flex-col">
           {/* Chegou na área: três ondas verdes saem do botão. */}
@@ -570,7 +581,11 @@ export function Balancando({
       aria-live="assertive"
       data-testid="balancando"
     >
-      {picos >= exigidos && <div className="efeito-clarao pointer-events-none fixed inset-0 z-40 bg-verde" aria-hidden="true" />}
+      {picos >= exigidos && (
+        <Sobreposicao>
+          <div className="efeito-clarao pointer-events-none fixed inset-0 z-40 bg-verde" aria-hidden="true" />
+        </Sobreposicao>
+      )}
       <div className="relative size-60">
         <svg viewBox="0 0 240 240" className="size-full" aria-hidden="true">
           {exigidos <= FATIAS_MAX ? (

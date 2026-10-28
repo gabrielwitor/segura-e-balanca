@@ -8,6 +8,7 @@ import { estaInstalado } from '../instalacao';
 import { nomeDaPista } from './Radar';
 import { AjustesFeedback } from './AjustesFeedback';
 import { ChipConexao } from './Cabecalho';
+import { Sobreposicao } from './Tela';
 
 interface Linha {
   uid: string;
@@ -231,44 +232,46 @@ function SairDaConta({ email, pendentes }: { email: string | null; pendentes: nu
         </span>
       </button>
       {aberto && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center">
-          <button type="button" tabIndex={-1} aria-label="Fechar" onClick={() => setAberto(false)} className="absolute inset-0 bg-[rgba(5,10,8,0.7)]" />
-          <div
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="sair-t"
-            className="relative flex w-full max-w-[440px] flex-col gap-4 rounded-t-3xl border-t border-borda bg-painel px-5 pt-5 pb-[max(24px,env(safe-area-inset-bottom))]"
-          >
-            <h2 id="sair-t" className="m-0 font-display text-2xl font-bold">
-              Sair da conta?
-            </h2>
-            {pendentes > 0 ? (
-              <p role="alert" className="m-0 rounded-2xl border border-alerta-borda bg-alerta-fundo px-4 py-3 text-[15px] text-[#FFE6B0]">
-                Sincronize antes de sair: {pendentes} {pendentes === 1 ? 'balançada não enviada' : 'balançadas não enviadas'}.
-              </p>
-            ) : (
-              <p className="m-0 text-[15px] text-[#C6D6CD]">Seus pontos continuam salvos. Entre de novo quando quiser.</p>
-            )}
-            {erro && (
-              <p role="alert" className="m-0 text-sm text-erro-texto">
-                {erro}
-              </p>
-            )}
-            <div className="grid grid-cols-2 gap-2.5">
-              <button ref={cancelar} type="button" onClick={() => setAberto(false)} className="h-[52px] rounded-2xl border border-borda font-semibold">
-                Cancelar
-              </button>
-              <button
-                type="button"
-                disabled={pendentes > 0 || saindo}
-                onClick={() => void confirmar()}
-                className="h-[52px] rounded-2xl bg-texto font-bold text-noite disabled:opacity-40"
-              >
-                {saindo ? 'Saindo…' : 'Sair'}
-              </button>
+        <Sobreposicao>
+          <div className="fixed inset-0 z-50 flex items-end justify-center">
+            <button type="button" tabIndex={-1} aria-label="Fechar" onClick={() => setAberto(false)} className="absolute inset-0 bg-[rgba(5,10,8,0.7)]" />
+            <div
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="sair-t"
+              className="relative flex w-full max-w-[440px] flex-col gap-4 rounded-t-3xl border-t border-borda bg-painel px-5 pt-5 pb-[max(24px,env(safe-area-inset-bottom))]"
+            >
+              <h2 id="sair-t" className="m-0 font-display text-2xl font-bold">
+                Sair da conta?
+              </h2>
+              {pendentes > 0 ? (
+                <p role="alert" className="m-0 rounded-2xl border border-alerta-borda bg-alerta-fundo px-4 py-3 text-[15px] text-[#FFE6B0]">
+                  Sincronize antes de sair: {pendentes} {pendentes === 1 ? 'balançada não enviada' : 'balançadas não enviadas'}.
+                </p>
+              ) : (
+                <p className="m-0 text-[15px] text-[#C6D6CD]">Seus pontos continuam salvos. Entre de novo quando quiser.</p>
+              )}
+              {erro && (
+                <p role="alert" className="m-0 text-sm text-erro-texto">
+                  {erro}
+                </p>
+              )}
+              <div className="grid grid-cols-2 gap-2.5">
+                <button ref={cancelar} type="button" onClick={() => setAberto(false)} className="h-[52px] rounded-2xl border border-borda font-semibold">
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={pendentes > 0 || saindo}
+                  onClick={() => void confirmar()}
+                  className="h-[52px] rounded-2xl bg-texto font-bold text-noite disabled:opacity-40"
+                >
+                  {saindo ? 'Saindo…' : 'Sair'}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        </Sobreposicao>
       )}
     </>
   );
