@@ -36,7 +36,7 @@ function Confete() {
         dx: `${Math.round((Math.random() - 0.5) * 340)}px`,
         dy: `${Math.round(-120 - Math.random() * 280)}px`,
         giro: `${Math.round((Math.random() - 0.5) * 720)}deg`,
-        cor: ['#062012', '#F4F7F5', '#FFC24B', '#FF7A45', '#7EB6FF'][i % 5],
+        cor: ['#FFC24B', '#FFD98A', '#062012', '#F4F7F5', '#F5B301', '#FF7A45'][i % 6],
         atraso: `${Math.round(Math.random() * 120)}ms`,
         largo: i % 3 === 0,
       })),
@@ -147,12 +147,19 @@ export function Balancou({ chave, dados, voltar, irParaRanking }: { chave: strin
       {s.tipo === 'valida' && s.pos === 1 && <Confete />}
       <div className="relative mt-6 flex size-[168px] items-center justify-center">
         {ok && <span className="animate-onda absolute inset-0 rounded-full border-4 border-verde-tinta" aria-hidden="true" />}
-        <span className={`flex size-[132px] items-center justify-center rounded-full ${ok ? 'bg-verde-tinta text-verde' : 'bg-apagado text-texto'}`}>
-          <Icone nome={ok ? 'check' : 'anular'} tamanho={68} strokeWidth={ok ? 2.4 : 2} />
-        </span>
+        {primeiro ? (
+          // 1º lugar: o troféu cai quicando.
+          <span className="efeito-cai-trofeu flex size-[132px] items-center justify-center rounded-full bg-verde-tinta text-alerta">
+            <Icone nome="trofeu" tamanho={68} strokeWidth={2} />
+          </span>
+        ) : (
+          <span className={`flex size-[132px] items-center justify-center rounded-full ${ok ? 'bg-verde-tinta text-verde' : 'bg-apagado text-texto'}`}>
+            <Icone nome={ok ? 'check' : 'anular'} tamanho={68} strokeWidth={ok ? 2.4 : 2} />
+          </span>
+        )}
       </div>
       <div className="flex flex-col items-center gap-2.5 text-center">
-        <h1 id="balancou-titulo" className="m-0 font-display text-[46px] leading-none font-bold tracking-tight tabular-nums">
+        <h1 id="balancou-titulo" className={`m-0 font-display text-[46px] leading-none font-bold tracking-tight tabular-nums ${primeiro ? 'efeito-surge-titulo' : ''}`}>
           {titulo}
         </h1>
         {sub && <p className="m-0 max-w-xs text-[17px] leading-snug font-medium">{sub}</p>}

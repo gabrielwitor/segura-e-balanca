@@ -3,7 +3,7 @@ import { SACUDIDAS_PADRAO } from '@/dominio/constantes';
 import { Icone } from '@/ui/Icone';
 import { destravarSom, feedback } from '../feedback';
 import { permissaoDeMovimento, pedirPermissaoDeMovimento, useBalanco } from '../sensores';
-import { Balancando } from './Radar';
+import { Balancando, IconeDeFaixa } from './Radar';
 
 /** Três dicas e o treino: a bolinha do treino é a 4ª do indicador. */
 const PASSOS = 4;
@@ -103,12 +103,13 @@ function Termometros() {
     <>
       {(
         [
-          ['Frio', 1, 'bg-frio text-frio-texto opacity-55', 'bg-frio-texto'],
-          ['Morno', 3, 'bg-morno text-morno-texto opacity-80', 'bg-morno-texto'],
-          ['Quente', 5, 'bg-quente text-quente-tinta', 'bg-quente-tinta'],
+          ['Frio', 1, 'bg-frio text-frio-texto opacity-55', 'bg-frio-texto', 'neve'],
+          ['Morno', 3, 'bg-morno text-morno-texto opacity-80', 'bg-morno-texto', 'termometro'],
+          ['Quente', 5, 'bg-quente text-quente-tinta', 'bg-quente-tinta', 'fogo'],
         ] as const
-      ).map(([nome, nivel, cls, barra]) => (
+      ).map(([nome, nivel, cls, barra, icone]) => (
         <div key={nome} className={`flex items-center gap-4 rounded-[18px] px-4 py-3.5 ${cls}`}>
+          <IconeDeFaixa icone={icone} entrando={false} />
           <div className="grow font-display text-[28px] leading-none font-bold">{nome}</div>
           <Barras nivel={nivel} cor={barra} />
         </div>
