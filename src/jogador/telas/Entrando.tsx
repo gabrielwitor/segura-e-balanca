@@ -55,7 +55,7 @@ export function Entrando({ uid, aoTerminar, aoVoltar }: { uid: string; aoTermina
   const passos: { id: EtapaEntrada; texto: string }[] = [
     { id: 'conta', texto: 'Conta conectada' },
     { id: 'relogio', texto: 'Relógio acertado' },
-    { id: 'pontos', texto: info ? `Pistas baixadas · ${info}` : 'Baixando pistas' },
+    { id: 'pontos', texto: info ? `Pontos baixados · ${info}` : 'Baixando pontos' },
     { id: 'guardando', texto: 'Guardando no celular' },
   ];
   const idx = ordem.indexOf(etapa);

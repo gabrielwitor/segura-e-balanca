@@ -48,7 +48,7 @@ export function Avisos({ dados }: { dados: DadosDoJogo }) {
     }
   }, [conexao, pendentes]);
 
-  // Partida pausada/retomada e pistas novas, vistas no sync.
+  // Partida pausada/retomada e pontos novos, vistos no sync.
   const estado = dados.partida?.estado;
   const estadoAntes = useRef(estado);
   useEffect(() => {
@@ -64,7 +64,7 @@ export function Avisos({ dados }: { dados: DadosDoJogo }) {
     const atuais = new Set(chaveAtivos ? chaveAtivos.split(',') : []);
     if (vistos.current) {
       const nova = ativos.find((p) => !vistos.current!.has(p.id));
-      if (nova) mostrar({ icone: 'criarAqui', forte: `Pista ${nova.numero} liberada`, tom: 'neutro' });
+      if (nova) mostrar({ icone: 'criarAqui', forte: `Ponto ${nova.numero} liberado`, tom: 'neutro' });
     }
     vistos.current = atuais;
     // eslint-disable-next-line react-hooks/exhaustive-deps

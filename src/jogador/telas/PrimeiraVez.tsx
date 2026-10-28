@@ -52,7 +52,7 @@ function Moldura({ children, passo, pular }: { children: ReactNode; passo?: numb
 
 const DICAS: { titulo: string; texto: string; ilustracao: () => ReactNode }[] = [
   { titulo: 'Siga a temperatura', texto: 'Frio, morno ou quente: vá esquentando.', ilustracao: Termometros },
-  { titulo: 'Escolha uma pista', texto: 'Toque numa pista. As claras valem mais.', ilustracao: Pistas },
+  { titulo: 'Escolha um ponto', texto: 'Veja quanto cada um vale e toque para seguir.', ilustracao: Pontos },
   { titulo: 'Segure e balance', texto: `Na área, segure o botão e balance ${SACUDIDAS_PADRAO} vezes.`, ilustracao: BotaoDeExemplo },
 ];
 
@@ -118,13 +118,13 @@ function Termometros() {
   );
 }
 
-function Pistas() {
+function Pontos() {
   return (
     <>
       {(
         [
-          ['Pista 1', 'vale alto', 'morno', 'bg-morno text-morno-texto', true],
-          ['Pista 2', 'vale médio', 'frio', 'bg-frio text-frio-texto', false],
+          ['Ponto 1', 'vale 100 pts', 'morno', 'bg-morno text-morno-texto', true],
+          ['Ponto 2', 'vale 60 pts', 'frio', 'bg-frio text-frio-texto', false],
         ] as const
       ).map(([nome, valor, faixa, cor, escolhida]) => (
         <div

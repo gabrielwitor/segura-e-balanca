@@ -78,7 +78,7 @@ export const desativarPonto = (id: string) => updateDoc(ref.ponto(id), { ativo: 
 export const podeExcluirPonto = (partida: Partida | null) => !partida || partida.estado === 'rascunho' || partida.estado === 'finalizada';
 
 /**
- * Apaga o ponto e a fila dele na partida atual, e renumera os seguintes para as pistas
+ * Apaga o ponto e a fila dele na partida atual, e renumera os seguintes para os pontos
  * continuarem 1, 2, 3… Partidas finalizadas não mudam: o ranking final delas está congelado.
  */
 export async function excluirPonto(ponto: Ponto, pontos: Ponto[], partida: Partida | null): Promise<void> {

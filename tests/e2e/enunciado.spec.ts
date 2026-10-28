@@ -7,7 +7,7 @@ import {
   conexao,
   entradasNoServidor,
   entrarNoJogo,
-  escolherPista,
+  escolherPonto,
   geo,
   esperarServiceWorker,
   irPara,
@@ -117,10 +117,10 @@ test('reenvio não muda nada e conflito entre aparelhos descarta o mais tarde', 
   await outro.close();
 });
 
-test('fora do raio não deixa balançar; pista escolhida mostra a dica', async ({ page, context }) => {
+test('fora do raio não deixa balançar; ponto escolhido mostra a pista (dica)', async ({ page, context }) => {
   await irPara(context, { lat: PONTO_A.lat + 0.0009, lng: PONTO_A.lng }); // ~100 m
   await entrarNoJogo(page, 'fabi', 'Fabi');
-  await escolherPista(page, 1);
+  await escolherPonto(page, 1);
   await expect(page.getByTestId('temperatura')).toContainText('Morno');
   await expect(page.getByTestId('balancar')).toBeDisabled();
   await expect(page.getByText('Dica do ponto 1')).toBeVisible();

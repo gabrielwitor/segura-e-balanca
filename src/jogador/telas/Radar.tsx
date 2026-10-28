@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { TTL_VALOR_MS } from '@/dominio/constantes';
-import { nivelDoValor, type NivelValor } from '@/dominio/pontuacao';
-import { alcance, faixaDaDistancia, haversine, rumo, setor, tendencia, type AmostraDistancia, type Alcance, type Faixa, type Tendencia } from '@/dominio/radar';
+import { FAIXA_MORNO_M, FAIXA_QUENTE_M } from '@/dominio/constantes';
+import { alcance, type Alcance, type Faixa, type Tendencia } from '@/dominio/radar';
 import { registrarBalancada } from '@/sync/saida';
-import type { PontoLocal } from '@/sync/db';
 import { Icone } from '@/ui/Icone';
-import { pontoConquistado, useAgora, useConexao, type DadosDoJogo, type Sessao } from '../dados';
+import { useConexao, type DadosDoJogo, type Sessao } from '../dados';
+import { nomeDoPonto, type Alvo, type Radar as DadosDoRadar } from '../alvos';
 import { db, relogio, sync } from '../servicos';
-import { pedirLocalizacao, pedirPermissaoDeMovimento, permissaoDeMovimento, useBalanco, useBussola, usePosicao, type Leitura } from '../sensores';
+import { pedirLocalizacao, pedirPermissaoDeMovimento, permissaoDeMovimento, useBalanco, type Leitura } from '../sensores';
 import { destravarSom, feedback, precisaDeToqueParaFeedback } from '../feedback';
 import { Cabecalho } from './Cabecalho';
 import { EstadoVazio } from './EstadoVazio';
@@ -15,39 +14,18 @@ import { Balancou } from './Balancou';
 import { PermissaoNegada } from './PermissaoNegada';
 import { Sobreposicao } from './Tela';
 
-export const nomeDaPista = (p: Pick<PontoLocal, 'numero'>) => `Pista ${p.numero}`;
-
 /** Evento do painel de debug para testar sem acelerômetro (desktop, E2E). */
 export const EVENTO_SIMULAR_BALANCO = 'seb:simular-balanco';
 
 /** Intervalo do bipe do radar no quente (ms). */
 const TICK_QUENTE_MS = 600;
 
-interface Medida {
-  d: number;
-  faixa: Faixa;
-  tendencia: Tendencia;
-}
-
-interface Alvo {
-  ponto: PontoLocal;
-  medida: Medida | undefined;
-  setor: number | null;
-  nivel: NivelValor | 'feito' | 'expirado';
-  conquistado: boolean;
-}
-
 const ORDEM_FAIXA: Record<Faixa, number> = { frio: 0, morno: 1, quente: 2 };
 
 const TEXTO_TENDENCIA: Record<Tendencia, string> = { esquentando: 'Esquentando', esfriando: 'Esfriando', estavel: 'Parado' };
 
-const NOME_NIVEL: Record<Alvo['nivel'], string> = {
-  alto: 'vale alto',
-  medio: 'vale médio',
-  baixo: 'vale baixo',
-  expirado: 'pontuação disponível',
-  feito: 'conquistada',
-};
+/** "vale 90 pts" (RF-13 revisto: o número exato, pela fila que este aparelho conhece). */
+export const valorDoPonto = (a: Alvo) => (a.conquistado ? 'conquistado' : `vale ${a.pts} pts`);
 
 interface Props {
   uid: string;
@@ -55,54 +33,23 @@ interface Props {
   dados: DadosDoJogo;
   sessao: Sessao;
   irParaRanking: () => void;
+  /** Sensores e medidas (compartilhados com a aba Pontos). */
+  radar: DadosDoRadar;
+  /** Ponto escolhido na aba Pontos; null = o mais perto. */
+  alvoId: string | null;
+  setAlvoId: (id: string | null) => void;
+  irParaPontos: () => void;
   /** Avisa quando está balançando ou mostrando o resultado (o pai desliga o puxar para atualizar). */
   aoOcupar?: (ocupado: boolean) => void;
 }
 
-export function Radar({ uid, apelido, dados, sessao, irParaRanking, aoOcupar }: Props) {
+export function Radar({ uid, apelido, dados, sessao, irParaRanking, radar, alvoId, setAlvoId, irParaPontos, aoOcupar }: Props) {
   const partida = dados.partida;
-  const ativos = useMemo(() => dados.pontos.filter((p) => p.ativo).sort((a, b) => a.numero - b.numero), [dados.pontos]);
-  const jogavel = partida?.estado === 'ativa' && ativos.length > 0;
+  const { gps, heading, leitura, alvos, maisPerto, jogavel } = radar;
+  const ativos = alvos.length;
 
-  const gps = usePosicao(jogavel);
-  const heading = useBussola(jogavel);
-  const agora = useAgora(10_000);
-  const leitura = gps.tipo === 'ok' ? gps.leitura : null;
-
-  // Faixa com histerese e tendência pedem memória entre leituras.
-  const memoria = useRef(new Map<string, { faixa: Faixa; amostras: AmostraDistancia[] }>());
-  const [medidas, setMedidas] = useState(new Map<string, Medida>());
-  useEffect(() => {
-    if (!leitura) return;
-    const novas = new Map<string, Medida>();
-    for (const p of ativos) {
-      const d = haversine(leitura, p);
-      const m = memoria.current.get(p.id) ?? { faixa: faixaDaDistancia(d), amostras: [] };
-      m.faixa = faixaDaDistancia(d, m.faixa);
-      m.amostras = [...m.amostras.filter((a) => leitura.t - a.t < 20_000), { t: leitura.t, d }];
-      memoria.current.set(p.id, m);
-      novas.set(p.id, { d, faixa: m.faixa, tendencia: tendencia(m.amostras, leitura.t) });
-    }
-    setMedidas(novas);
-  }, [leitura, ativos]);
-
-  const alvos: Alvo[] = ativos.map((p) => {
-    const medida = medidas.get(p.id);
-    const conquistado = !!pontoConquistado(dados.minhas, p.id);
-    const fila = dados.ranking.filas.get(p.id) ?? [];
-    const expirado = agora - p.sincronizadoEm > TTL_VALOR_MS;
-    return {
-      ponto: p,
-      medida,
-      setor: leitura && heading != null ? setor(rumo(leitura, p), heading) : null,
-      nivel: conquistado ? 'feito' : expirado ? 'expirado' : nivelDoValor(p, fila.length + 1),
-      conquistado,
-    };
-  });
-
-  const [alvoId, setAlvoId] = useState<string | null>(null);
-  const maisPerto = [...alvos].sort((a, b) => Number(a.conquistado) - Number(b.conquistado) || (a.medida?.d ?? Infinity) - (b.medida?.d ?? Infinity))[0];
-  const alvo = alvos.find((a) => a.ponto.id === alvoId) ?? maisPerto;
+  const escolhido = alvos.find((a) => a.ponto.id === alvoId && !a.conquistado);
+  const alvo = escolhido ?? maisPerto;
   const al: Alcance | null = alvo?.medida && leitura ? alcance(alvo.medida.d, leitura.accuracy, alvo.ponto.raioM) : null;
 
   const transicoes = useFeedbackDoRadar(alvo, al, jogavel);
@@ -117,13 +64,13 @@ export function Radar({ uid, apelido, dados, sessao, irParaRanking, aoOcupar }: 
   const [fraco, setFraco] = useState(false);
   useEffect(() => aoOcupar?.(armado || resultado != null), [armado, resultado, aoOcupar]);
 
-  if (!partida || partida.estado !== 'ativa' || ativos.length === 0)
+  if (!partida || partida.estado !== 'ativa' || ativos === 0)
     return (
       <>
         <Cabecalho uid={uid} apelido={apelido} dados={dados} />
         <EstadoVazio
           partida={partida}
-          semPontos={ativos.length === 0}
+          semPontos={ativos === 0}
           ultimoPull={sessao.ultimoPull}
           minhaPosicao={dados.ranking.ranking.find((l) => l.uid === uid)}
           irParaRanking={irParaRanking}
@@ -148,7 +95,7 @@ export function Radar({ uid, apelido, dados, sessao, irParaRanking, aoOcupar }: 
           dados={dados}
           voltar={() => {
             setResultado(null);
-            setAlvoId(null); // volta para a pista aberta mais perto
+            setAlvoId(null); // volta para o ponto aberto mais perto
           }}
           irParaRanking={irParaRanking}
         />
@@ -184,13 +131,11 @@ export function Radar({ uid, apelido, dados, sessao, irParaRanking, aoOcupar }: 
               <Icone nome="avancar" tamanho={18} />
             </button>
           )}
-          {heading != null && leitura ? (
+          {alvo && (
             <>
-              <Mostrador alvos={alvos} alvoId={alvo?.ponto.id} escolher={setAlvoId} />
-              {alvo && <CartaoAlvo alvo={alvo} />}
+              <Mostrador alvo={alvo} heading={heading} leitura={leitura} />
+              <CartaoAlvo alvo={alvo} escolhido={!!escolhido} trocar={irParaPontos} voltarAoMaisPerto={() => setAlvoId(null)} />
             </>
-          ) : (
-            <ListaDePistas alvos={alvos} alvoId={alvo?.ponto.id} escolher={setAlvoId} />
           )}
         </>
       )}
@@ -272,7 +217,7 @@ function useFeedbackDoRadar(alvo: Alvo | undefined, al: Alcance | null, jogavel:
   useEffect(() => {
     const a = anterior.current;
     const dentro = al === 'dentro';
-    // Trocar de pista não conta como esquentar/esfriar.
+    // Trocar de ponto não conta como esquentar/esfriar.
     if (a.id === alvoId && faixa && a.faixa && faixa !== a.faixa) {
       const tipo = ORDEM_FAIXA[faixa] > ORDEM_FAIXA[a.faixa] ? 'esquentou' : 'esfriou';
       if (tipo === 'esquentou') feedback.esquentou();
@@ -304,13 +249,13 @@ const NIVEL_TERMOMETRO: Record<string, number> = { frio: 1, morno: 3, quente: 4,
 function Banner({ alvo, leitura, al, mudanca }: { alvo: Alvo; leitura: Leitura | null; al: Alcance | null; mudanca: Transicoes['mudanca'] }) {
   const m = alvo.medida;
   let v: { titulo: string; sub: string; cls: string; nivel: number; barra: string; icone?: 'fogo' | 'termometro' | 'neve' };
-  if (alvo.conquistado) v = { titulo: 'Conquistada', sub: 'Escolha outra pista', cls: 'bg-apagado text-texto', nivel: 0, barra: 'bg-texto' };
+  if (alvo.conquistado) v = { titulo: 'Conquistado', sub: 'Escolha outro ponto', cls: 'bg-apagado text-texto', nivel: 0, barra: 'bg-texto' };
   else if (!m || !leitura) v = { titulo: 'Procurando você…', sub: 'Aguardando o GPS', cls: 'bg-painel text-suave border border-borda', nivel: 0, barra: 'bg-suave' };
   else if (al === 'dentro') v = { titulo: 'Você chegou!', sub: 'Pode balançar', cls: 'bg-verde text-verde-tinta', nivel: NIVEL_TERMOMETRO.chegou!, barra: 'bg-verde-tinta' };
   else if (al === 'gps-impreciso')
     v = { titulo: 'Quase lá', sub: 'GPS fraco · vá para céu aberto', cls: 'bg-quente text-quente-tinta', nivel: NIVEL_TERMOMETRO.quente!, barra: 'bg-quente-tinta', icone: 'fogo' };
   else if (m.faixa === 'quente')
-    v = { titulo: 'Quente!', sub: 'Procure em volta', cls: 'bg-quente text-quente-tinta', nivel: NIVEL_TERMOMETRO.quente!, barra: 'bg-quente-tinta', icone: 'fogo' };
+    v = { titulo: 'Quente!', sub: 'Bem perto', cls: 'bg-quente text-quente-tinta', nivel: NIVEL_TERMOMETRO.quente!, barra: 'bg-quente-tinta', icone: 'fogo' };
   else if (m.faixa === 'morno')
     v = { titulo: 'Morno', sub: TEXTO_TENDENCIA[m.tendencia], cls: 'bg-morno text-morno-texto', nivel: NIVEL_TERMOMETRO.morno!, barra: 'bg-morno-texto', icone: 'termometro' };
   else v = { titulo: 'Frio', sub: TEXTO_TENDENCIA[m.tendencia], cls: 'bg-frio text-frio-texto', nivel: NIVEL_TERMOMETRO.frio!, barra: 'bg-frio-texto', icone: 'neve' };
@@ -404,136 +349,159 @@ function Esfriou() {
   );
 }
 
-const RAIO_BLIP = { frio: 122, morno: 74 } as const;
+const C = 150;
+/** Raio útil do mostrador (a borda tem as marcas de grau). */
+const R_UTIL = 136;
 
-const ESTILO_BLIP: Record<Alvo['nivel'], { tam: number; cls: string }> = {
-  alto: { tam: 20, cls: 'bg-[#F4F7F5] shadow-[0_0_0_5px_rgba(244,247,245,0.22)]' },
-  medio: { tam: 15, cls: 'bg-verde' },
-  baixo: { tam: 14, cls: 'border-2 border-fraco' },
-  expirado: { tam: 15, cls: 'border-2 border-dashed border-suave' },
-  feito: { tam: 20, cls: 'bg-apagado text-suave' },
+/** Distância real -> raio no mostrador: quente até 44, morno até 100, frio até a borda (400 m+). */
+function raioNoMostrador(d: number): number {
+  if (d <= FAIXA_QUENTE_M) return 14 + (d / FAIXA_QUENTE_M) * 30;
+  if (d <= FAIXA_MORNO_M) return 44 + ((d - FAIXA_QUENTE_M) / (FAIXA_MORNO_M - FAIXA_QUENTE_M)) * 56;
+  return Math.min(R_UTIL, 100 + ((d - FAIXA_MORNO_M) / 250) * 36);
+}
+
+const noCirculo = (graus: number, r: number) => {
+  const a = (graus * Math.PI) / 180;
+  return [C + r * Math.sin(a), C - r * Math.cos(a)] as const;
 };
 
-/** RF-10 a RF-15: radar orientado pela bússola, blips quantizados em setor e anel. */
-function Mostrador({ alvos, alvoId, escolher }: { alvos: Alvo[]; alvoId: string | undefined; escolher: (id: string) => void }) {
-  const alvoQuente = alvos.find((a) => a.ponto.id === alvoId && a.medida?.faixa === 'quente' && !a.conquistado);
+const COR_BLIP: Record<Faixa, string> = { frio: '#bbd4ff', morno: '#ffd98a', quente: '#ff7a45' };
+
+/**
+ * Bússola com um ponto só: direção exata (graus, não setor) e distância real no mostrador.
+ * No quente, zoom: o mostrador inteiro vira os últimos 50 m, com a área do ponto e a precisão do GPS.
+ * Sem bússola, o mostrador fica com o norte para cima.
+ */
+function Mostrador({ alvo, heading, leitura }: { alvo: Alvo; heading: number | null; leitura: Leitura | null }) {
+  const giro = heading ?? 0;
+  const m = alvo.medida;
+  const zoom = m?.faixa === 'quente' && !alvo.conquistado;
+  const escala = R_UTIL / FAIXA_QUENTE_M;
+  const temPonto = !!m && alvo.rumo != null;
+  const rel = (alvo.rumo ?? 0) - giro;
+  const r = m ? (zoom ? Math.min(m.d * escala, R_UTIL) : raioNoMostrador(m.d)) : 0;
+  const [x, y] = noCirculo(rel, r);
+  const cor = alvo.conquistado ? '#6b8578' : COR_BLIP[m?.faixa ?? 'frio'];
+  const ponta = (d: number, rr: number) =>
+    noCirculo(rel + d, rr)
+      .map((n) => n.toFixed(1))
+      .join(' ');
   return (
-    <div className="relative mx-auto aspect-square w-full max-w-[300px] shrink-0">
-      <svg viewBox="0 0 300 300" className="size-full" role="img" aria-label="Radar com as pistas por direção e distância">
-        <circle cx="150" cy="150" r="146" className="fill-radar stroke-borda" strokeWidth="2" />
-        <circle cx="150" cy="150" r="98" fill="none" className="stroke-borda" strokeWidth="1.5" strokeDasharray="4 6" />
-        <circle cx="150" cy="150" r="49" fill="none" className="stroke-borda" strokeWidth="1.5" strokeDasharray="4 6" />
-        <line x1="150" y1="4" x2="150" y2="296" className="stroke-linha" />
-        <line x1="4" y1="150" x2="296" y2="150" className="stroke-linha" />
-        <g className="animate-varredura" style={{ transformOrigin: '150px 150px', animationDuration: alvoQuente ? '1.5s' : undefined }}>
-          <path d="M150 150 L150 4 A146 146 0 0 1 253.2 46.8 Z" className="fill-verde" opacity="0.1" />
+    <div className="relative mx-auto aspect-square w-full max-w-[300px] shrink-0" data-testid="bussola">
+      <svg viewBox="0 0 300 300" className="size-full" role="img" aria-label={`${nomeDoPonto(alvo.ponto)}${m ? `, ${m.faixa}` : ''}`}>
+        <defs>
+          <clipPath id="mostrador">
+            <circle cx={C} cy={C} r="145" />
+          </clipPath>
+        </defs>
+        <circle cx={C} cy={C} r="146" className="fill-radar stroke-borda" strokeWidth="2" />
+        {zoom ? (
+          <>
+            <circle cx={C} cy={C} r={R_UTIL} fill="rgba(255,122,69,.07)" />
+            <circle cx={C} cy={C} r="91" fill="none" stroke="#5a2e1a" strokeWidth="1.5" strokeDasharray="4 6" />
+            <circle cx={C} cy={C} r="45" fill="none" stroke="#5a2e1a" strokeWidth="1.5" strokeDasharray="4 6" />
+          </>
+        ) : (
+          <>
+            <circle cx={C} cy={C} r="100" fill="rgba(255,217,138,.06)" stroke="#3a2e10" strokeWidth="1.5" strokeDasharray="4 6" />
+            <circle cx={C} cy={C} r="44" fill="rgba(255,122,69,.10)" stroke="#5a2e1a" strokeWidth="1.5" strokeDasharray="4 6" />
+          </>
+        )}
+        {Array.from({ length: 36 }, (_, i) => {
+          const longa = i % 3 === 0;
+          const [x1, y1] = noCirculo(i * 10 - giro, 146);
+          const [x2, y2] = noCirculo(i * 10 - giro, longa ? 134 : 140);
+          return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={longa ? '#4a6356' : '#2c3d34'} strokeWidth={longa ? 2 : 1.2} />;
+        })}
+        {(['N', 'L', 'S', 'O'] as const).map((letra, i) => {
+          const [lx, ly] = noCirculo(i * 90 - giro, 120);
+          return (
+            <text key={letra} x={lx} y={ly + 5} textAnchor="middle" fontSize="14" fontWeight="700" className="fill-suave">
+              {letra}
+            </text>
+          );
+        })}
+        <g className="animate-varredura" style={{ transformOrigin: '150px 150px', animationDuration: zoom ? '1.5s' : undefined }}>
+          <path d="M150 150 L150 4 A146 146 0 0 1 253.2 46.8 Z" className="fill-verde" opacity="0.08" />
         </g>
-        <text x="150" y="22" textAnchor="middle" className="fill-suave" fontSize="12" fontWeight="700">
-          N
-        </text>
-        <path d="M150 139 L158 160 L150 155 L142 160 Z" className="fill-verde" />
+        {temPonto && zoom && leitura && (
+          <circle cx={C} cy={C} r={Math.min(leitura.accuracy * escala, R_UTIL)} fill="rgba(232,242,236,.10)" stroke="rgba(232,242,236,.25)" />
+        )}
+        {temPonto && zoom && (
+          <circle
+            cx={x}
+            cy={y}
+            r={alvo.ponto.raioM * escala}
+            clipPath="url(#mostrador)"
+            fill="rgba(67,224,138,.10)"
+            stroke="#43e08a"
+            strokeWidth="2"
+            strokeDasharray="5 5"
+          />
+        )}
+        {temPonto && (
+          <>
+            <line x1={C} y1={C} x2={x} y2={y} stroke={cor} strokeWidth={zoom ? 2.5 : 2} strokeDasharray="3 5" opacity="0.85" />
+            {/* Marcador na borda: a direção exata, legível de relance. */}
+            <path d={`M${ponta(0, 146)} L${ponta(-4, 128)} L${ponta(4, 128)} Z`} fill={cor} />
+          </>
+        )}
+        {heading != null ? <path d="M150 137 L159 161 L150 156 L141 161 Z" className="fill-verde" /> : <circle cx={C} cy={C} r="7" className="fill-verde" />}
       </svg>
-      {alvoQuente && <div className="animate-pulso absolute inset-0 rounded-full border-4 border-quente" aria-hidden="true" />}
-      {alvos.map((a) => {
-        // RF-12: no anel quente a direção some.
-        if (!a.medida || a.setor == null || a.medida.faixa === 'quente') return null;
-        const r = RAIO_BLIP[a.medida.faixa];
-        const ang = (a.setor * Math.PI) / 4;
-        const e = ESTILO_BLIP[a.nivel];
-        const sel = a.ponto.id === alvoId;
-        return (
-          <button
-            key={a.ponto.id}
-            type="button"
-            onClick={() => escolher(a.ponto.id)}
-            aria-label={`${nomeDaPista(a.ponto)}, ${a.medida.faixa}, ${NOME_NIVEL[a.nivel]}`}
-            aria-pressed={sel}
-            className="absolute -mt-[22px] -ml-[22px] flex size-11 items-center justify-center"
-            style={{ left: `${((150 + r * Math.sin(ang)) / 300) * 100}%`, top: `${((150 - r * Math.cos(ang)) / 300) * 100}%` }}
-          >
-            <span
-              className={`flex items-center justify-center rounded-full ${e.cls} ${sel ? 'ring-[3px] ring-texto ring-offset-[3px] ring-offset-noite' : ''}`}
-              style={{ width: e.tam, height: e.tam }}
-            >
-              {a.nivel === 'feito' && <Icone nome="check" tamanho={12} strokeWidth={2.4} />}
-            </span>
-          </button>
-        );
-      })}
+      {temPonto && (
+        <span
+          className="efeito-alvo pointer-events-none absolute -mt-[13px] -ml-[13px] flex size-[26px] items-center justify-center rounded-full text-noite"
+          style={{ left: `${(x / 300) * 100}%`, top: `${(y / 300) * 100}%`, background: cor, boxShadow: `0 0 0 5px rgba(255,255,255,.12), 0 0 18px ${cor}` }}
+          aria-hidden="true"
+        >
+          {alvo.conquistado && <Icone nome="check" tamanho={14} strokeWidth={2.6} />}
+        </span>
+      )}
     </div>
   );
 }
 
-const COR_FAIXA: Record<Faixa, string> = {
+/** Ponto na bússola: nome, valor e a pista (a dica do ponto). */
+function CartaoAlvo({ alvo, escolhido, trocar, voltarAoMaisPerto }: { alvo: Alvo; escolhido: boolean; trocar: () => void; voltarAoMaisPerto: () => void }) {
+  const faixa = alvo.medida?.faixa;
+  return (
+    <section className="flex flex-col gap-2.5 rounded-2xl border border-borda bg-painel px-3.5 py-3" aria-label="Ponto na bússola">
+      <div className="flex items-center gap-3">
+        <span className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${faixa && !alvo.conquistado ? COR_FAIXA[faixa] : 'bg-apagado text-texto'}`}>
+          <Icone nome={alvo.conquistado ? 'check' : faixa ? ICONE_FAIXA[faixa] : 'local'} tamanho={22} />
+        </span>
+        <div className="flex grow flex-col">
+          <h2 className="m-0 text-[17px] font-bold">{nomeDoPonto(alvo.ponto)}</h2>
+          <span className="text-[13px] text-suave">{valorDoPonto(alvo)}</span>
+        </div>
+        {escolhido ? (
+          <button type="button" onClick={voltarAoMaisPerto} className="min-h-11 shrink-0 px-1 text-right text-sm leading-tight font-semibold text-suave">
+            Voltar ao
+            <br />
+            mais perto
+          </button>
+        ) : (
+          <button type="button" onClick={trocar} className="flex min-h-11 shrink-0 items-center gap-1 px-1 text-sm font-semibold text-suave">
+            Trocar
+            <Icone nome="avancar" tamanho={16} />
+          </button>
+        )}
+      </div>
+      {alvo.ponto.dica && <p className="m-0 border-t border-borda pt-2.5 text-[15px] leading-snug">{alvo.ponto.dica}</p>}
+    </section>
+  );
+}
+
+export const COR_FAIXA: Record<Faixa, string> = {
   frio: 'bg-frio text-frio-texto',
   morno: 'bg-morno text-morno-texto',
   quente: 'bg-quente text-quente-tinta',
 };
 
-const ICONE_FAIXA = { frio: 'neve', morno: 'termometro', quente: 'fogo' } as const satisfies Record<Faixa, string>;
-const ANIM_FAIXA: Record<Faixa, string> = { frio: 'efeito-gira', morno: 'efeito-respira', quente: 'efeito-chama' };
+export const ICONE_FAIXA = { frio: 'neve', morno: 'termometro', quente: 'fogo' } as const satisfies Record<Faixa, string>;
+export const ANIM_FAIXA: Record<Faixa, string> = { frio: 'efeito-gira', morno: 'efeito-respira', quente: 'efeito-chama' };
 
-const SETA_TENDENCIA: Record<Tendencia, string> = { esquentando: '↑ esquentando', esfriando: '↓ esfriando', estavel: '= parado' };
-
-/** RF-16: sem bússola, o radar vira lista com temperatura e tendência. A dica abre na pista escolhida. */
-function ListaDePistas({ alvos, alvoId, escolher }: { alvos: Alvo[]; alvoId: string | undefined; escolher: (id: string) => void }) {
-  return (
-    <>
-      <h1 className="m-0 font-display text-2xl font-bold">Pistas</h1>
-      <ul className="m-0 flex list-none flex-col gap-2.5 p-0" aria-label="Pistas">
-        {alvos.map((a) => {
-          const sel = a.ponto.id === alvoId;
-          const e = ESTILO_BLIP[a.nivel];
-          return (
-            <li key={a.ponto.id}>
-              <button
-                type="button"
-                onClick={() => escolher(a.ponto.id)}
-                aria-expanded={sel}
-                className={`flex w-full flex-col gap-2.5 rounded-[18px] border-2 px-4 py-3.5 text-left ${sel ? 'border-texto bg-painel' : 'border-borda'} ${a.conquistado ? 'opacity-70' : ''}`}
-              >
-                <span className="flex w-full items-center gap-3">
-                  <span className="flex size-6 shrink-0 items-center justify-center">
-                    <span className={`rounded-full ${e.cls}`} style={{ width: Math.min(e.tam, 18), height: Math.min(e.tam, 18) }} />
-                  </span>
-                  <span className="flex grow flex-col">
-                    <span className="text-[17px] font-bold">{nomeDaPista(a.ponto)}</span>
-                    <span className="text-[13px] text-suave">{NOME_NIVEL[a.nivel]}</span>
-                  </span>
-                  {a.conquistado ? (
-                    <span className="flex items-center rounded-full bg-apagado px-3 py-1 text-texto">
-                      <Icone nome="check" tamanho={16} strokeWidth={2.4} />
-                    </span>
-                  ) : a.medida ? (
-                    <span className="flex shrink-0 flex-col items-end gap-1">
-                      <span className={`flex items-center gap-1 rounded-full px-3 py-1 text-sm font-bold ${COR_FAIXA[a.medida.faixa]}`}>
-                        <Icone nome={ICONE_FAIXA[a.medida.faixa]} tamanho={16} strokeWidth={2} className={ANIM_FAIXA[a.medida.faixa]} />
-                        {a.medida.faixa}
-                      </span>
-                      <span className="text-xs font-semibold text-suave">{SETA_TENDENCIA[a.medida.tendencia]}</span>
-                    </span>
-                  ) : null}
-                </span>
-                {sel && <span className="block border-t border-borda pt-2.5 text-[15px] leading-snug">{a.ponto.dica || 'Siga a temperatura.'}</span>}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </>
-  );
-}
-
-function CartaoAlvo({ alvo }: { alvo: Alvo }) {
-  return (
-    <section className="flex flex-col gap-1 rounded-2xl border border-borda bg-painel px-4 py-3" aria-label="Pista escolhida">
-      <h2 className="m-0 text-xs font-bold tracking-widest text-suave uppercase">
-        {nomeDaPista(alvo.ponto)} · {NOME_NIVEL[alvo.nivel]}
-      </h2>
-      <p className="m-0 text-[15px] leading-snug">{alvo.ponto.dica || 'Siga a temperatura.'}</p>
-    </section>
-  );
-}
+export const SETA_TENDENCIA: Record<Tendencia, string> = { esquentando: '↑ esquentando', esfriando: '↓ esfriando', estavel: '= parado' };
 
 /** Até este número de sacudidas o anel é dividido em fatias; acima, vira um anel contínuo. */
 const FATIAS_MAX = 12;

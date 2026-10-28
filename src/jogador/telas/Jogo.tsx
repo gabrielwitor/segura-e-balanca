@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react';
 import PullToRefresh from 'react-simple-pull-to-refresh';
 import { Icone } from '@/ui/Icone';
 import { useDadosDoJogo, useSessao } from '../dados';
+import { useRadar } from '../alvos';
 import { Avisos } from './Avisos';
 import { atualizarAgora, ligarEscuta } from '../servicos';
 import { Girando } from './Tela';
 import { Radar } from './Radar';
 import { Ranking } from './Ranking';
+import { Pontos } from './Pontos';
 import { Historico } from './Historico';
 import { Tela } from './Tela';
 import { PainelDebug } from './PainelDebug';
@@ -14,7 +16,7 @@ import { PrimeiraVez } from './PrimeiraVez';
 import { Instalar } from './Instalar';
 import { dicasVistas } from '../instalacao';
 
-export type Aba = 'radar' | 'ranking' | 'historico' | 'instalar';
+export type Aba = 'radar' | 'pontos' | 'ranking' | 'historico' | 'instalar';
 
 export function Jogo({ uid, apelido, abaInicial }: { uid: string; apelido: string; abaInicial: Aba }) {
   const [aba, setAba] = useState<Aba>(abaInicial);
@@ -27,6 +29,12 @@ export function Jogo({ uid, apelido, abaInicial }: { uid: string; apelido: strin
   const [dicas, setDicas] = useState(() => !dicasVistas.ler());
   /** Botão de balançar seguro ou tela de resultado aberta: puxar para atualizar fica desligado. */
   const [ocupado, setOcupado] = useState(false);
+
+  // GPS e bússola ligados no Radar e em Pontos (as duas abas mostram distância e temperatura).
+  const radar = useRadar(dados, aba === 'radar' || aba === 'pontos');
+  /** Ponto escolhido na aba Pontos; null = a bússola mostra o mais perto. */
+  const [alvoId, setAlvoId] = useState<string | null>(null);
+  const naBussola = radar.alvos.find((a) => a.ponto.id === alvoId && !a.conquistado)?.ponto.id ?? radar.maisPerto?.ponto.id;
 
   if (!dados || !sessao) return <Tela carregando />;
 
@@ -55,7 +63,34 @@ export function Jogo({ uid, apelido, abaInicial }: { uid: string; apelido: strin
         }
       >
         <div className="flex grow flex-col gap-4">
-          {aba === 'radar' && <Radar uid={uid} apelido={apelido} dados={dados} sessao={sessao} irParaRanking={() => setAba('ranking')} aoOcupar={setOcupado} />}
+          {aba === 'radar' && (
+            <Radar
+              uid={uid}
+              apelido={apelido}
+              dados={dados}
+              sessao={sessao}
+              irParaRanking={() => setAba('ranking')}
+              radar={radar}
+              alvoId={alvoId}
+              setAlvoId={setAlvoId}
+              irParaPontos={() => setAba('pontos')}
+              aoOcupar={setOcupado}
+            />
+          )}
+          {aba === 'pontos' && (
+            <Pontos
+              uid={uid}
+              apelido={apelido}
+              dados={dados}
+              alvos={radar.alvos}
+              naBussola={naBussola}
+              escolher={(id) => {
+                // Escolher o mais perto é o mesmo que não escolher: a bússola segue o mais perto.
+                setAlvoId(id === radar.maisPerto?.ponto.id ? null : id);
+                setAba('radar');
+              }}
+            />
+          )}
           {aba === 'ranking' && (
             <Ranking uid={uid} apelido={apelido} dados={dados} sessao={sessao} abrirHistorico={() => setAba('historico')} abrirInstalar={() => setAba('instalar')} />
           )}
@@ -74,11 +109,12 @@ export function Jogo({ uid, apelido, abaInicial }: { uid: string; apelido: strin
       )}
       <nav
         aria-label="Navegação"
-        className="sticky bottom-0 -mx-5 mt-auto grid grid-cols-2 border-t border-borda bg-noite pb-[env(safe-area-inset-bottom)]"
+        className="sticky bottom-0 -mx-5 mt-auto grid grid-cols-3 border-t border-borda bg-noite pb-[env(safe-area-inset-bottom)]"
       >
         {(
           [
             ['radar', 'Radar', 'radar'],
+            ['pontos', 'Pontos', 'lista'],
             ['ranking', 'Ranking', 'trofeu'],
           ] as const
         ).map(([id, rotulo, icone]) => {

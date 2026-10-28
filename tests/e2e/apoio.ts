@@ -105,11 +105,14 @@ export async function balancar(page: Page) {
 }
 
 export async function voltarAoRadar(page: Page) {
-  await page.getByRole('button', { name: /^(Próxima pista|Voltar ao radar)$/ }).click();
+  await page.getByRole('button', { name: /^(Próximo ponto|Voltar ao radar)$/ }).click();
 }
 
-export async function escolherPista(page: Page, n: number) {
-  await page.getByRole('button', { name: new RegExp(`^Pista ${n}`) }).click();
+/** Aba Pontos: toca no ponto, que vai para a bússola (e volta para o Radar). */
+export async function escolherPonto(page: Page, n: number) {
+  await page.getByRole('button', { name: 'Pontos', exact: true }).click();
+  await page.getByTestId('lista-pontos').getByRole('button', { name: new RegExp(`^Ponto ${n}\\b`) }).click();
+  await expect(page.getByTestId('bussola')).toBeVisible();
 }
 
 /** Espera o service worker assumir, para o app abrir offline (RNF-03). */

@@ -10,7 +10,7 @@ const LIMITE_MOVIMENTO_MS = 15_000;
 const LIMITE_LOCALIZACAO_MS = 20_000;
 
 const SENSORES: { id: 'local' | 'movimento' | 'bussola'; icone: NomeIcone; nome: string; para: string }[] = [
-  { id: 'local', icone: 'local', nome: 'Localização', para: 'Distância até as pistas' },
+  { id: 'local', icone: 'local', nome: 'Localização', para: 'Distância até os pontos' },
   { id: 'movimento', icone: 'balancar', nome: 'Movimento', para: 'Detectar o balanço' },
   { id: 'bussola', icone: 'bussola', nome: 'Orientação', para: 'Girar o radar' },
 ];

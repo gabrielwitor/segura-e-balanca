@@ -129,7 +129,7 @@ export function EditorPonto({
         >
           <p className="m-0">
             O ponto some do mapa e do radar dos jogadores no próximo sync.
-            {pontos.some((p) => p.numero > ponto.numero) && ' Os pontos seguintes são renumerados para as pistas continuarem em sequência.'}
+            {pontos.some((p) => p.numero > ponto.numero) && ' Os pontos seguintes são renumerados para continuarem em sequência.'}
           </p>
         </Confirmar>
       )}
