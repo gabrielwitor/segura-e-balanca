@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
+import PullToRefresh from 'react-simple-pull-to-refresh';
 import { Icone } from '@/ui/Icone';
 import { useDadosDoJogo, useSessao } from '../dados';
 import { Avisos } from './Avisos';
-import { ligarEscuta } from '../servicos';
+import { atualizarAgora, ligarEscuta } from '../servicos';
+import { Girando } from './Tela';
 import { Radar } from './Radar';
 import { Ranking } from './Ranking';
 import { Historico } from './Historico';
@@ -23,6 +25,8 @@ export function Jogo({ uid, apelido, abaInicial }: { uid: string; apelido: strin
   useEffect(() => ligarEscuta(uid), [uid]);
 
   const [dicas, setDicas] = useState(() => !dicasVistas.ler());
+  /** Botão de balançar seguro ou tela de resultado aberta: puxar para atualizar fica desligado. */
+  const [ocupado, setOcupado] = useState(false);
 
   if (!dados || !sessao) return <Tela carregando />;
 
@@ -30,11 +34,34 @@ export function Jogo({ uid, apelido, abaInicial }: { uid: string; apelido: strin
 
   return (
     <Tela className="gap-4 !pb-0">
-      {aba === 'radar' && <Radar uid={uid} apelido={apelido} dados={dados} sessao={sessao} irParaRanking={() => setAba('ranking')} />}
-      {aba === 'ranking' && (
-        <Ranking uid={uid} apelido={apelido} dados={dados} sessao={sessao} abrirHistorico={() => setAba('historico')} abrirInstalar={() => setAba('instalar')} />
-      )}
-      {aba === 'historico' && <Historico uid={uid} voltar={() => setAba('ranking')} />}
+      {/* Puxar para atualizar: sincroniza sem recarregar. Desligado enquanto segura o botão ou vê o resultado. */}
+      <PullToRefresh
+        onRefresh={() => atualizarAgora(uid)}
+        isPullable={!ocupado}
+        pullDownThreshold={72}
+        maxPullDownDistance={110}
+        resistance={2}
+        backgroundColor="transparent"
+        pullingContent={
+          <div className="flex h-14 items-center justify-center text-suave" aria-hidden="true">
+            <Icone nome="seta" tamanho={22} className="rotate-180" />
+          </div>
+        }
+        refreshingContent={
+          <div role="status" className="flex h-14 items-center justify-center gap-2 text-sm font-semibold text-suave">
+            <Girando tamanho={18} />
+            Atualizando…
+          </div>
+        }
+      >
+        <div className="flex grow flex-col gap-4">
+          {aba === 'radar' && <Radar uid={uid} apelido={apelido} dados={dados} sessao={sessao} irParaRanking={() => setAba('ranking')} aoOcupar={setOcupado} />}
+          {aba === 'ranking' && (
+            <Ranking uid={uid} apelido={apelido} dados={dados} sessao={sessao} abrirHistorico={() => setAba('historico')} abrirInstalar={() => setAba('instalar')} />
+          )}
+          {aba === 'historico' && <Historico uid={uid} voltar={() => setAba('ranking')} />}
+        </div>
+      </PullToRefresh>
       <PainelDebug dados={dados} />
       <Avisos dados={dados} />
       {dicas && aba === 'radar' && dados.partida?.estado === 'ativa' && (

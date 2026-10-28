@@ -46,6 +46,7 @@ export function Ranking({
   const carregando = !sessao.ultimoPull && linhas.length === 0;
   const eu = linhas.find((l) => l.uid === uid);
   const acima = eu ? linhas.filter((l) => l.pontos > eu.pontos).at(-1) : undefined;
+  const subida = useSubida(uid, eu?.pos);
 
   // RF-30: o estado da conexão aparece sempre (chip); a linha de baixo diz se o ranking é final ou velho.
   const legenda = final
@@ -96,11 +97,23 @@ export function Ranking({
           )}
           <ol aria-label="Classificação" className="m-0 flex list-none flex-col p-0" data-testid="ranking-lista">
             {linhas.map((l) => (
-              <li key={l.uid} className={`flex min-h-12 items-center gap-3 border-b border-[#1A2B23] px-1 ${l.uid === uid ? 'bg-[#12301F]' : ''}`}>
+              <li
+                // Subiu de posição: sua linha remonta e sobe de onde estava, com um brilho.
+                key={l.uid === uid && subida ? `${l.uid}-${subida.k}` : l.uid}
+                className={`flex min-h-12 items-center gap-3 border-b border-[#1A2B23] px-1 ${l.uid === uid ? 'bg-[#12301F]' : ''} ${l.uid === uid && subida ? 'efeito-sobe-linha' : ''}`}
+                style={l.uid === uid && subida ? ({ '--de': `${subida.n * 48}px` } as React.CSSProperties) : undefined}
+              >
                 <span className={`flex size-[30px] shrink-0 items-center justify-center rounded-full text-sm font-bold ${MEDALHAS[l.pos - 1] ?? 'bg-[#1A2B23] text-suave'}`}>
                   {l.pos}
                 </span>
-                <span className={`grow truncate text-base ${l.uid === uid ? 'font-bold' : 'font-medium'}`}>{l.apelido}</span>
+                <span className={`flex grow items-center gap-1.5 truncate text-base ${l.uid === uid ? 'font-bold' : 'font-medium'}`}>
+                  <span className="truncate">{l.apelido}</span>
+                  {l.uid === uid && subida && (
+                    <span className="efeito-surge-selo shrink-0 rounded-full bg-verde px-2 py-0.5 text-xs font-bold text-verde-tinta">
+                      <span className="sr-only">subiu </span>↑{subida.n}
+                    </span>
+                  )}
+                </span>
                 <span className="font-display text-[17px] font-bold">{l.pontos}</span>
               </li>
             ))}
@@ -259,4 +272,19 @@ function SairDaConta({ email, pendentes }: { email: string | null; pendentes: nu
       )}
     </>
   );
+}
+
+/** Última posição vista por jogador (sobrevive à troca de aba). */
+const ultimaPosicao = new Map<string, number>();
+
+/** Quantas posições subiu desde a última vez que o ranking foi visto. */
+function useSubida(uid: string, pos: number | undefined): { n: number; k: number } | null {
+  const [subida, setSubida] = useState<{ n: number; k: number } | null>(null);
+  useEffect(() => {
+    if (pos == null) return;
+    const antes = ultimaPosicao.get(uid);
+    ultimaPosicao.set(uid, pos);
+    if (antes != null && pos < antes) setSubida((s) => ({ n: antes - pos, k: (s?.k ?? 0) + 1 }));
+  }, [uid, pos]);
+  return subida;
 }

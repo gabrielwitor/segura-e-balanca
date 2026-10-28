@@ -67,6 +67,27 @@ export function pedirMovimentoNoPrimeiroToque(): void {
   eventos.forEach((e) => document.addEventListener(e, tentar, true));
 }
 
+/**
+ * Resolve com `semResposta` se a promessa não terminar a tempo. O pedido de permissão do sistema
+ * pode nunca responder (diálogo fechado sem escolha, UI "silenciosa" do Chrome, app instalado no
+ * iPhone) e a tela não pode ficar presa esperando.
+ */
+export function comLimite<T, R>(p: Promise<T>, ms: number, semResposta: R): Promise<T | R> {
+  return new Promise((resolve) => {
+    const id = setTimeout(() => resolve(semResposta), ms);
+    p.then(
+      (v) => {
+        clearTimeout(id);
+        resolve(v);
+      },
+      () => {
+        clearTimeout(id);
+        resolve(semResposta);
+      },
+    );
+  });
+}
+
 export function pedirLocalizacao(): Promise<'ok' | 'negada' | 'indisponivel'> {
   return new Promise((resolve) => {
     if (!('geolocation' in navigator)) return resolve('indisponivel');

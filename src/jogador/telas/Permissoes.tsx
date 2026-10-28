@@ -1,32 +1,39 @@
 import { useState } from 'react';
 import { Icone, type NomeIcone } from '@/ui/Icone';
 import { destravarSom } from '../feedback';
-import { pedirLocalizacao, pedirPermissaoDeMovimento } from '../sensores';
+import { comLimite, pedirLocalizacao, pedirPermissaoDeMovimento } from '../sensores';
 import { BotaoPrimario, Girando, Tela } from './Tela';
 
-type Estado = 'antes' | 'pedindo' | 'ok' | 'negado';
+type Estado = 'antes' | 'pedindo' | 'ok' | 'negado' | 'sem-resposta';
+
+const LIMITE_MOVIMENTO_MS = 15_000;
+const LIMITE_LOCALIZACAO_MS = 20_000;
 
 const SENSORES: { id: 'local' | 'movimento' | 'bussola'; icone: NomeIcone; nome: string; para: string }[] = [
   { id: 'local', icone: 'local', nome: 'Localização', para: 'Distância até as pistas' },
-  { id: 'movimento', icone: 'balancar', nome: 'Movimento', para: 'Detectar a sacudida' },
+  { id: 'movimento', icone: 'balancar', nome: 'Movimento', para: 'Detectar o balanço' },
   { id: 'bussola', icone: 'bussola', nome: 'Orientação', para: 'Girar o radar' },
 ];
 
 /** Tela 3 · explica os sensores antes do pedido do sistema (RF-05: um toque pede tudo). */
 export function Permissoes({ aoContinuar, aoNegarLocalizacao, passo = 'Passo 3 de 3' }: { aoContinuar: () => void; aoNegarLocalizacao: () => void; passo?: string | null }) {
   const [estado, setEstado] = useState<Record<string, Estado>>({ local: 'antes', movimento: 'antes', bussola: 'antes' });
+  const [tentativas, setTentativas] = useState(0);
   const pedindo = Object.values(estado).includes('pedindo');
 
   const pedir = async () => {
     destravarSom();
+    setTentativas((n) => n + 1);
     // Movimento primeiro: o iOS só aceita o pedido com o gesto ainda "quente".
     setEstado({ local: 'antes', movimento: 'pedindo', bussola: 'pedindo' });
-    const mov = await pedirPermissaoDeMovimento();
-    setEstado({ local: 'pedindo', movimento: mov ? 'ok' : 'negado', bussola: mov ? 'ok' : 'negado' });
-    const loc = await pedirLocalizacao();
-    setEstado({ local: loc === 'negada' ? 'negado' : 'ok', movimento: mov ? 'ok' : 'negado', bussola: mov ? 'ok' : 'negado' });
+    const mov = await comLimite(pedirPermissaoDeMovimento(), LIMITE_MOVIMENTO_MS, null);
+    const em: Estado = mov == null ? 'sem-resposta' : mov ? 'ok' : 'negado';
+    setEstado({ local: 'pedindo', movimento: em, bussola: em });
+    const loc = await comLimite(pedirLocalizacao(), LIMITE_LOCALIZACAO_MS, 'sem-resposta' as const);
+    setEstado({ local: loc === 'negada' ? 'negado' : loc === 'sem-resposta' ? 'sem-resposta' : 'ok', movimento: em, bussola: em });
     if (loc === 'negada') aoNegarLocalizacao();
-    else aoContinuar();
+    // Sem resposta da localização: fica aqui com "Tentar de novo" e "Continuar sem permitir".
+    else if (loc !== 'sem-resposta') aoContinuar();
   };
 
   return (
@@ -53,6 +60,7 @@ export function Permissoes({ aoContinuar, aoNegarLocalizacao, passo = 'Passo 3 d
               <span className="shrink-0 text-[13px] font-bold" role="status">
                 {e === 'ok' && <span className="text-verde-claro">Permitido</span>}
                 {e === 'negado' && <span className="text-[#FFB4AD]">Negado</span>}
+                {e === 'sem-resposta' && <span className="text-morno-texto">Sem resposta</span>}
                 {e === 'pedindo' && <Girando tamanho={16} />}
               </span>
             </li>
@@ -60,9 +68,17 @@ export function Permissoes({ aoContinuar, aoNegarLocalizacao, passo = 'Passo 3 d
         })}
       </ul>
       <div className="grow" />
-      <BotaoPrimario onClick={() => void pedir()} disabled={pedindo}>
-        {pedindo ? 'Aguardando sua resposta…' : 'Permitir e continuar'}
-      </BotaoPrimario>
+      <div className="flex flex-col gap-1">
+        <BotaoPrimario onClick={() => void pedir()} disabled={pedindo}>
+          {pedindo ? 'Aguardando sua resposta…' : tentativas > 0 ? 'Tentar de novo' : 'Permitir e continuar'}
+        </BotaoPrimario>
+        {/* Nunca prende a pessoa aqui: o radar pede a localização de novo e tem "Ativar sensores". */}
+        {tentativas > 0 && !pedindo && (
+          <button type="button" onClick={aoContinuar} className="h-12 text-[15px] font-semibold text-suave">
+            Continuar sem permitir
+          </button>
+        )}
+      </div>
     </Tela>
   );
 }

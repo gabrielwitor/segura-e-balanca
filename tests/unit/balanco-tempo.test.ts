@@ -51,8 +51,21 @@ describe('balanço (RF-22)', () => {
     expect(d.alimentar({ x: 20, y: 0, z: 9.8, t: 4000 }).picos).toBe(0);
   });
 
-  it('picos espaçados demais não contam', () => {
-    expect(sacudir(new DetectorDeBalanco(), 4, 1100)).toBe(false);
+  it('pausa maior que 1,5 s entre sacudidas zera o progresso', () => {
+    expect(sacudir(new DetectorDeBalanco(), 4, 1700)).toBe(false);
+    expect(sacudir(new DetectorDeBalanco(), 4, 1200)).toBe(true);
+  });
+
+  it('até 100 sacudidas: sem janela total, só não pode parar', () => {
+    expect(sacudir(new DetectorDeBalanco(100), 100, 250)).toBe(true);
+    const d = new DetectorDeBalanco(100);
+    d.alimentar({ x: 0, y: 0, z: 9.8, t: 0 });
+    let t = 400;
+    let r = { picos: 0, novoPico: false, completo: false };
+    for (let i = 0; i < 60; i++) r = d.alimentar({ x: i % 2 ? 20 : -5, y: 0, z: 9.8, t: (t += 250) });
+    expect(r.picos).toBe(59);
+    // Parou 2 s no meio: recomeça do zero.
+    expect(d.alimentar({ x: 20, y: 0, z: 9.8, t: t + 2000 }).picos).toBe(0);
   });
 
   it('balanço leve não conta', () => {
@@ -88,6 +101,9 @@ describe('apelido (RF-02)', () => {
   });
   it('valida', () => {
     expect(validarApelido('A')).not.toBeNull();
+    expect(validarApelido('Maria Eduarda dos Santos Silva')).toBeNull(); // 30
+    expect(validarApelido('Maria Eduarda dos Santos Silva!')).not.toBeNull();
+    expect(validarApelido('x'.repeat(31))).not.toBeNull();
     expect(validarApelido('Ana/Lima')).not.toBeNull();
     expect(validarApelido('Ana Lima')).toBeNull();
   });

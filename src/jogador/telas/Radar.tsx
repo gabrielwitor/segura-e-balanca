@@ -8,7 +8,7 @@ import { Icone } from '@/ui/Icone';
 import { pontoConquistado, useAgora, useConexao, type DadosDoJogo, type Sessao } from '../dados';
 import { db, relogio, sync } from '../servicos';
 import { pedirLocalizacao, pedirPermissaoDeMovimento, permissaoDeMovimento, useBalanco, useBussola, usePosicao, type Leitura } from '../sensores';
-import { destravarSom, feedback } from '../feedback';
+import { destravarSom, feedback, precisaDeToqueParaFeedback } from '../feedback';
 import { Cabecalho } from './Cabecalho';
 import { EstadoVazio } from './EstadoVazio';
 import { Balancou } from './Balancou';
@@ -54,9 +54,11 @@ interface Props {
   dados: DadosDoJogo;
   sessao: Sessao;
   irParaRanking: () => void;
+  /** Avisa quando está balançando ou mostrando o resultado (o pai desliga o puxar para atualizar). */
+  aoOcupar?: (ocupado: boolean) => void;
 }
 
-export function Radar({ uid, apelido, dados, sessao, irParaRanking }: Props) {
+export function Radar({ uid, apelido, dados, sessao, irParaRanking, aoOcupar }: Props) {
   const partida = dados.partida;
   const ativos = useMemo(() => dados.pontos.filter((p) => p.ativo).sort((a, b) => a.numero - b.numero), [dados.pontos]);
   const jogavel = partida?.estado === 'ativa' && ativos.length > 0;
@@ -102,7 +104,8 @@ export function Radar({ uid, apelido, dados, sessao, irParaRanking }: Props) {
   const alvo = alvos.find((a) => a.ponto.id === alvoId) ?? maisPerto;
   const al: Alcance | null = alvo?.medida && leitura ? alcance(alvo.medida.d, leitura.accuracy, alvo.ponto.raioM) : null;
 
-  useFeedbackDoRadar(alvo, al, jogavel);
+  const transicoes = useFeedbackDoRadar(alvo, al, jogavel);
+  const faixaAtual = alvo && !alvo.conquistado && leitura ? alvo.medida?.faixa : undefined;
 
   const movimentoLiberado = useSyncExternalStore(permissaoDeMovimento.inscrever, permissaoDeMovimento.liberada);
   const [guiaLocalizacao, setGuiaLocalizacao] = useState(false);
@@ -111,6 +114,7 @@ export function Radar({ uid, apelido, dados, sessao, irParaRanking }: Props) {
   const [picos, setPicos] = useState(0);
   const picosRef = useRef(0);
   const [fraco, setFraco] = useState(false);
+  useEffect(() => aoOcupar?.(armado || resultado != null), [armado, resultado, aoOcupar]);
 
   if (!partida || partida.estado !== 'ativa' || ativos.length === 0)
     return (
@@ -162,7 +166,7 @@ export function Radar({ uid, apelido, dados, sessao, irParaRanking }: Props) {
               </button>
             </div>
           ) : (
-            alvo && <Banner alvo={alvo} leitura={leitura} al={al} />
+            alvo && <Banner alvo={alvo} leitura={leitura} al={al} mudanca={transicoes.mudanca} />
           )}
           {!movimentoLiberado && (
             <button
@@ -186,57 +190,88 @@ export function Radar({ uid, apelido, dados, sessao, irParaRanking }: Props) {
         </>
       )}
       <div className="grow" />
+      {/* Quente (fora da área): as bordas da tela pulsam no ritmo do bipe. */}
+      {!armado && faixaAtual === 'quente' && al !== 'dentro' && (
+        <div className="efeito-borda-quente pointer-events-none fixed inset-0 z-40 shadow-[inset_0_0_90px_24px_rgba(255,122,69,0.7)]" aria-hidden="true" />
+      )}
+      {!armado && transicoes.mudanca?.tipo === 'esfriou' && faixaAtual === 'frio' && <Esfriou key={transicoes.mudanca.n} />}
       {alvo && (
-        <BotaoBalancar
-          uid={uid}
-          alvo={alvo}
-          al={al}
-          leitura={leitura}
-          partidaId={partida.id}
-          armado={armado}
-          setArmado={(a) => {
-            setArmado(a);
-            if (!a) {
-              picosRef.current = 0;
-              setPicos(0);
-              setFraco(false);
-            }
-          }}
-          aoProgresso={(n, novo) => {
-            // Picos expiraram sem completar: balanço fraco ou devagar demais.
-            if (!novo && n === 0 && picosRef.current > 0) {
-              setFraco(true);
-              feedback.balancoFraco();
-            }
-            if (novo) {
-              setFraco(false);
-              if (n < (alvo?.ponto.sacudidas ?? 4)) feedback.pico(n);
-            }
-            picosRef.current = n;
-            setPicos(n);
-          }}
-          aoRegistrar={setResultado}
-        />
+        <div className="relative flex shrink-0 flex-col">
+          {/* Chegou na área: três ondas verdes saem do botão. */}
+          {transicoes.chegou > 0 && al === 'dentro' && !armado && (
+            <span key={transicoes.chegou} aria-hidden="true">
+              {[0, 0.25, 0.5].map((atraso) => (
+                <span
+                  key={atraso}
+                  className="efeito-onda-chegou pointer-events-none absolute top-9 left-1/2 -mt-[60px] -ml-[60px] size-[120px] rounded-full border-[3px] border-verde opacity-0"
+                  style={{ animationDelay: `${atraso}s` }}
+                />
+              ))}
+            </span>
+          )}
+          <BotaoBalancar
+            uid={uid}
+            alvo={alvo}
+            al={al}
+            leitura={leitura}
+            partidaId={partida.id}
+            armado={armado}
+            setArmado={(a) => {
+              setArmado(a);
+              if (!a) {
+                picosRef.current = 0;
+                setPicos(0);
+                setFraco(false);
+              }
+            }}
+            aoProgresso={(n, novo) => {
+              // Picos expiraram sem completar: balanço fraco ou devagar demais.
+              if (!novo && n === 0 && picosRef.current > 0) {
+                setFraco(true);
+                feedback.balancoFraco();
+              }
+              if (novo) {
+                setFraco(false);
+                if (n < (alvo?.ponto.sacudidas ?? 4)) feedback.pico(n, alvo?.ponto.sacudidas ?? 4);
+              }
+              picosRef.current = n;
+              setPicos(n);
+            }}
+            aoRegistrar={setResultado}
+          />
+        </div>
       )}
     </>
   );
 }
 
 /** Sons e vibração do radar: mudança de faixa, chegada na área e bipe no quente. */
-function useFeedbackDoRadar(alvo: Alvo | undefined, al: Alcance | null, jogavel: boolean) {
+/** Última mudança de faixa (para o banner virar) e quantas vezes chegou na área (ondas no botão). */
+export interface Transicoes {
+  mudanca: { tipo: 'esquentou' | 'esfriou'; n: number } | null;
+  chegou: number;
+}
+
+function useFeedbackDoRadar(alvo: Alvo | undefined, al: Alcance | null, jogavel: boolean): Transicoes {
   const faixa = alvo && !alvo.conquistado ? alvo.medida?.faixa : undefined;
   const alvoId = alvo?.ponto.id;
   const anterior = useRef<{ id?: string; faixa?: Faixa; dentro: boolean }>({ dentro: false });
+  const [transicoes, setTransicoes] = useState<Transicoes>({ mudanca: null, chegou: 0 });
 
   useEffect(() => {
     const a = anterior.current;
     const dentro = al === 'dentro';
     // Trocar de pista não conta como esquentar/esfriar.
     if (a.id === alvoId && faixa && a.faixa && faixa !== a.faixa) {
-      if (ORDEM_FAIXA[faixa] > ORDEM_FAIXA[a.faixa]) feedback.esquentou();
+      const tipo = ORDEM_FAIXA[faixa] > ORDEM_FAIXA[a.faixa] ? 'esquentou' : 'esfriou';
+      if (tipo === 'esquentou') feedback.esquentou();
       else feedback.esfriou();
+      setTransicoes((t) => ({ ...t, mudanca: { tipo, n: (t.mudanca?.n ?? 0) + 1 } }));
     }
-    if (a.id === alvoId && dentro && !a.dentro) feedback.entrouNaArea();
+    if (a.id === alvoId && dentro && !a.dentro) {
+      feedback.entrouNaArea();
+      setTransicoes((t) => ({ ...t, chegou: t.chegou + 1 }));
+    }
     anterior.current = { id: alvoId, faixa, dentro };
   }, [alvoId, faixa, al]);
 
@@ -249,24 +284,36 @@ function useFeedbackDoRadar(alvo: Alvo | undefined, al: Alcance | null, jogavel:
     }, TICK_QUENTE_MS);
     return () => clearInterval(id);
   }, [bipar]);
+
+  return transicoes;
 }
 
 const NIVEL_TERMOMETRO: Record<string, number> = { frio: 1, morno: 3, quente: 4, chegou: 5 };
 
-function Banner({ alvo, leitura, al }: { alvo: Alvo; leitura: Leitura | null; al: Alcance | null }) {
+function Banner({ alvo, leitura, al, mudanca }: { alvo: Alvo; leitura: Leitura | null; al: Alcance | null; mudanca: Transicoes['mudanca'] }) {
   const m = alvo.medida;
-  let v: { titulo: string; sub: string; cls: string; nivel: number; barra: string };
+  let v: { titulo: string; sub: string; cls: string; nivel: number; barra: string; icone?: 'fogo' | 'termometro' | 'neve' };
   if (alvo.conquistado) v = { titulo: 'Conquistada', sub: 'Escolha outra pista', cls: 'bg-apagado text-texto', nivel: 0, barra: 'bg-texto' };
   else if (!m || !leitura) v = { titulo: 'Procurando você…', sub: 'Aguardando o GPS', cls: 'bg-painel text-suave border border-borda', nivel: 0, barra: 'bg-suave' };
   else if (al === 'dentro') v = { titulo: 'Você chegou!', sub: 'Pode balançar', cls: 'bg-verde text-verde-tinta', nivel: NIVEL_TERMOMETRO.chegou!, barra: 'bg-verde-tinta' };
   else if (al === 'gps-impreciso')
-    v = { titulo: 'Quase lá', sub: 'GPS fraco · vá para céu aberto', cls: 'bg-quente text-quente-tinta', nivel: NIVEL_TERMOMETRO.quente!, barra: 'bg-quente-tinta' };
-  else if (m.faixa === 'quente') v = { titulo: 'Quente!', sub: 'Procure em volta', cls: 'bg-quente text-quente-tinta', nivel: NIVEL_TERMOMETRO.quente!, barra: 'bg-quente-tinta' };
-  else if (m.faixa === 'morno') v = { titulo: 'Morno', sub: TEXTO_TENDENCIA[m.tendencia], cls: 'bg-morno text-morno-texto', nivel: NIVEL_TERMOMETRO.morno!, barra: 'bg-morno-texto' };
-  else v = { titulo: 'Frio', sub: TEXTO_TENDENCIA[m.tendencia], cls: 'bg-frio text-frio-texto', nivel: NIVEL_TERMOMETRO.frio!, barra: 'bg-frio-texto' };
+    v = { titulo: 'Quase lá', sub: 'GPS fraco · vá para céu aberto', cls: 'bg-quente text-quente-tinta', nivel: NIVEL_TERMOMETRO.quente!, barra: 'bg-quente-tinta', icone: 'fogo' };
+  else if (m.faixa === 'quente')
+    v = { titulo: 'Quente!', sub: 'Procure em volta', cls: 'bg-quente text-quente-tinta', nivel: NIVEL_TERMOMETRO.quente!, barra: 'bg-quente-tinta', icone: 'fogo' };
+  else if (m.faixa === 'morno')
+    v = { titulo: 'Morno', sub: TEXTO_TENDENCIA[m.tendencia], cls: 'bg-morno text-morno-texto', nivel: NIVEL_TERMOMETRO.morno!, barra: 'bg-morno-texto', icone: 'termometro' };
+  else v = { titulo: 'Frio', sub: TEXTO_TENDENCIA[m.tendencia], cls: 'bg-frio text-frio-texto', nivel: NIVEL_TERMOMETRO.frio!, barra: 'bg-frio-texto', icone: 'neve' };
 
   return (
-    <div className={`flex items-center gap-4 rounded-[18px] px-4 py-3.5 ${v.cls}`} role="status" aria-live="polite" data-testid="temperatura">
+    <div
+      // Remonta a cada mudança de faixa: o banner vira e o ícone novo entra com um pulo.
+      key={mudanca?.n ?? 0}
+      className={`relative flex items-center gap-4 rounded-[18px] px-4 py-3.5 ${v.cls} ${mudanca ? 'efeito-vira' : ''}`}
+      role="status"
+      aria-live="polite"
+      data-testid="temperatura"
+    >
+      {v.icone && <IconeDeFaixa icone={v.icone} entrando={!!mudanca} />}
       <div className="flex grow flex-col gap-1">
         <div className="font-display text-[28px] leading-none font-bold">{v.titulo}</div>
         <div className="text-[15px] font-semibold">{v.sub}</div>
@@ -276,6 +323,72 @@ function Banner({ alvo, leitura, al }: { alvo: Alvo; leitura: Leitura | null; al
           <span key={i} className={`w-2 rounded-[3px] ${i <= v.nivel ? v.barra : 'bg-fraco/35'}`} style={{ height: 12 + i * 5 }} />
         ))}
       </div>
+    </div>
+  );
+}
+
+/** Fogo tremula e solta faíscas, termômetro balança, floco gira. */
+export function IconeDeFaixa({ icone, entrando }: { icone: 'fogo' | 'termometro' | 'neve'; entrando: boolean }) {
+  const caixa = { fogo: 'efeito-brasa', termometro: '', neve: 'efeito-brilho-frio' }[icone];
+  const anim = { fogo: 'efeito-chama', termometro: 'efeito-respira', neve: 'efeito-gira' }[icone];
+  return (
+    <span className={`relative flex size-[52px] shrink-0 items-center justify-center rounded-[14px] bg-white/12 ${caixa}`} aria-hidden="true">
+      <span className={`flex ${entrando ? 'efeito-entra-icone' : ''}`}>
+        <Icone nome={icone} tamanho={32} className={anim} />
+      </span>
+      {icone === 'fogo' && <Faiscas />}
+    </span>
+  );
+}
+
+const FAISCAS = [
+  { x: 12, dx: -10, dy: -52, atraso: 0 },
+  { x: 24, dx: 6, dy: -64, atraso: 0.3 },
+  { x: 34, dx: 12, dy: -48, atraso: 0.7 },
+  { x: 18, dx: -4, dy: -70, atraso: 1 },
+  { x: 40, dx: 14, dy: -58, atraso: 1.3 },
+];
+
+function Faiscas() {
+  return (
+    <>
+      {FAISCAS.map((f, i) => (
+        <span
+          key={i}
+          className="efeito-faisca pointer-events-none absolute top-3 block size-1.5 rounded-full bg-morno-texto opacity-0"
+          style={{ left: f.x, '--dx': `${f.dx}px`, '--dy': `${f.dy}px`, animationDelay: `${f.atraso}s` } as React.CSSProperties}
+        />
+      ))}
+    </>
+  );
+}
+
+/** Esfriou: neve cai pela tela e as bordas embaçam por um instante. */
+function Esfriou() {
+  const flocos = useMemo(
+    () =>
+      Array.from({ length: 12 }, () => ({
+        x: Math.round(Math.random() * 100),
+        dx: `${Math.round((Math.random() - 0.5) * 80)}px`,
+        dy: `${Math.round(500 + Math.random() * 400)}px`,
+        giro: `${Math.round(90 + Math.random() * 270)}deg`,
+        atraso: `${(Math.random() * 1.2).toFixed(2)}s`,
+        tam: [12, 14, 18][Math.floor(Math.random() * 3)]!,
+      })),
+    [],
+  );
+  return (
+    <div className="pointer-events-none fixed inset-0 z-40 overflow-hidden" aria-hidden="true">
+      <div className="efeito-gelo absolute inset-0 opacity-0 shadow-[inset_0_0_70px_16px_rgba(187,212,255,0.5)]" />
+      {flocos.map((f, i) => (
+        <span
+          key={i}
+          className="efeito-floco absolute -top-5 text-frio-texto opacity-0"
+          style={{ left: `${f.x}%`, '--dx': f.dx, '--dy': f.dy, '--giro': f.giro, animationDelay: f.atraso } as React.CSSProperties}
+        >
+          <Icone nome="neve" tamanho={f.tam} strokeWidth={2} />
+        </span>
+      ))}
     </div>
   );
 }
@@ -346,6 +459,9 @@ const COR_FAIXA: Record<Faixa, string> = {
   quente: 'bg-quente text-quente-tinta',
 };
 
+const ICONE_FAIXA = { frio: 'neve', morno: 'termometro', quente: 'fogo' } as const satisfies Record<Faixa, string>;
+const ANIM_FAIXA: Record<Faixa, string> = { frio: 'efeito-gira', morno: 'efeito-respira', quente: 'efeito-chama' };
+
 const SETA_TENDENCIA: Record<Tendencia, string> = { esquentando: '↑ esquentando', esfriando: '↓ esfriando', estavel: '= parado' };
 
 /** RF-16: sem bússola, o radar vira lista com temperatura e tendência. A dica abre na pista escolhida. */
@@ -379,7 +495,10 @@ function ListaDePistas({ alvos, alvoId, escolher }: { alvos: Alvo[]; alvoId: str
                     </span>
                   ) : a.medida ? (
                     <span className="flex shrink-0 flex-col items-end gap-1">
-                      <span className={`rounded-full px-3 py-1 text-sm font-bold ${COR_FAIXA[a.medida.faixa]}`}>{a.medida.faixa}</span>
+                      <span className={`flex items-center gap-1 rounded-full px-3 py-1 text-sm font-bold ${COR_FAIXA[a.medida.faixa]}`}>
+                        <Icone nome={ICONE_FAIXA[a.medida.faixa]} tamanho={16} strokeWidth={2} className={ANIM_FAIXA[a.medida.faixa]} />
+                        {a.medida.faixa}
+                      </span>
                       <span className="text-xs font-semibold text-suave">{SETA_TENDENCIA[a.medida.tendencia]}</span>
                     </span>
                   ) : null}
@@ -405,9 +524,29 @@ function CartaoAlvo({ alvo }: { alvo: Alvo }) {
   );
 }
 
-/** Tela "Balançando": o anel enche a cada sacudida que conta. */
-function Balancando({ picos, exigidos, fraco }: { picos: number; exigidos: number; fraco: boolean }) {
-  const titulo = picos >= exigidos ? 'Balançou!' : picos === 0 ? 'Sacuda!' : picos === exigidos - 1 ? 'Mais uma!' : 'Isso! De novo';
+/** Até este número de sacudidas o anel é dividido em fatias; acima, vira um anel contínuo. */
+const FATIAS_MAX = 12;
+
+/**
+ * Tela "Balançando": o anel enche a cada sacudida que conta. O treino do onboarding reaproveita,
+ * trocando título e legenda enquanto não está segurando (`alerta` pinta o ícone de amarelo).
+ */
+export function Balancando({
+  picos,
+  exigidos,
+  fraco,
+  titulo: tituloFixo,
+  legenda,
+  alerta,
+}: {
+  picos: number;
+  exigidos: number;
+  fraco: boolean;
+  titulo?: string;
+  legenda?: string;
+  alerta?: boolean;
+}) {
+  const titulo = tituloFixo ?? (picos >= exigidos ? 'Balançou!' : picos === 0 ? 'Balance!' : picos === exigidos - 1 ? 'Mais uma!' : 'Isso! De novo');
   const fatia = 360 / exigidos;
   const folga = Math.min(8, fatia / 6);
   const c = 120, r = 100;
@@ -420,28 +559,62 @@ function Balancando({ picos, exigidos, fraco }: { picos: number; exigidos: numbe
     const [x2, y2] = ponto(ate);
     return `M ${x1.toFixed(1)} ${y1.toFixed(1)} A ${r} ${r} 0 0 1 ${x2.toFixed(1)} ${y2.toFixed(1)}`;
   };
+  // Cada balanço que conta remonta o conteúdo: a tela treme (mais forte a cada um), a fatia estoura e o ícone achata.
+  const amp = Math.min(3 + picos * 2.5, 12);
   return (
-    <div className="flex grow flex-col items-center justify-center gap-6" role="status" aria-live="assertive" data-testid="balancando">
+    <div
+      key={picos}
+      className={`flex grow flex-col items-center justify-center gap-6 ${picos > 0 ? 'efeito-tremor' : ''}`}
+      style={{ '--amp': `${amp}px`, '--rot': `${(amp / 6).toFixed(1)}deg` } as React.CSSProperties}
+      role="status"
+      aria-live="assertive"
+      data-testid="balancando"
+    >
+      {picos >= exigidos && <div className="efeito-clarao pointer-events-none fixed inset-0 z-40 bg-verde" aria-hidden="true" />}
       <div className="relative size-60">
         <svg viewBox="0 0 240 240" className="size-full" aria-hidden="true">
-          {Array.from({ length: exigidos }, (_, i) => (
-            <path
-              key={i}
-              d={arco(i * fatia + folga, (i + 1) * fatia - folga)}
-              fill="none"
-              strokeWidth="18"
-              strokeLinecap="round"
-              className={`transition-[stroke] duration-150 ${i < picos ? 'stroke-verde' : 'stroke-[#1F3329]'}`}
-            />
-          ))}
+          {exigidos <= FATIAS_MAX ? (
+            Array.from({ length: exigidos }, (_, i) => (
+              <path
+                key={i}
+                d={arco(i * fatia + folga, (i + 1) * fatia - folga)}
+                fill="none"
+                strokeWidth="18"
+                strokeLinecap="round"
+                className={`transition-[stroke] duration-150 ${i < picos ? 'stroke-verde' : 'stroke-[#1F3329]'} ${i === picos - 1 ? 'efeito-estoura' : ''}`}
+              />
+            ))
+          ) : (
+            // Muitas sacudidas: um anel contínuo que enche pela proporção.
+            <>
+              <circle cx={c} cy={c} r={r} fill="none" strokeWidth="18" className="stroke-[#1F3329]" />
+              <circle
+                cx={c}
+                cy={c}
+                r={r}
+                fill="none"
+                strokeWidth="18"
+                strokeLinecap="round"
+                strokeDasharray={`${(2 * Math.PI * r * Math.min(picos, exigidos)) / exigidos} ${2 * Math.PI * r}`}
+                transform={`rotate(-90 ${c} ${c})`}
+                className="stroke-verde transition-[stroke-dasharray] duration-150"
+              />
+            </>
+          )}
         </svg>
-        <span className={`absolute inset-0 m-auto flex size-24 items-center justify-center rounded-[28px] ${picos >= exigidos ? 'bg-verde text-verde-tinta' : 'animate-sacode bg-painel text-verde'}`}>
-          <Icone nome={picos >= exigidos ? 'check' : 'balancar'} tamanho={52} strokeWidth={picos >= exigidos ? 2.4 : 1.8} />
+        <span
+          className={`absolute inset-0 m-auto flex size-24 items-center justify-center rounded-[28px] ${
+            picos >= exigidos ? 'bg-verde text-verde-tinta' : alerta ? 'bg-morno text-morno-texto' : 'bg-painel text-verde'
+          } ${picos > 0 ? 'efeito-achata' : ''}`}
+        >
+          <span className={`flex ${picos > 0 || alerta ? '' : 'animate-sacode'}`}>
+            <Icone nome={picos >= exigidos ? 'check' : 'balancar'} tamanho={52} strokeWidth={picos >= exigidos ? 2.4 : 1.8} />
+          </span>
         </span>
       </div>
       <div className="flex flex-col items-center gap-2 text-center">
         <div className="font-display text-[44px] leading-none font-bold">{fraco ? 'Mais força!' : titulo}</div>
-        <div className="text-[17px] font-semibold text-[#C6D6CD]">{picos < exigidos ? `${picos} de ${exigidos}` : ''}</div>
+        <div className="text-[17px] font-semibold text-[#C6D6CD]">{legenda ?? (picos < exigidos ? `${picos} de ${exigidos}` : '')}</div>
       </div>
     </div>
   );
@@ -473,6 +646,8 @@ function BotaoBalancar({
   aoRegistrar: (chave: string) => void;
 }) {
   const conexao = useConexao();
+  // Re-renderiza depois do toque de ativação (o estado de ativação do navegador não é reativo).
+  const [, setAtivado] = useState(0);
   const soltar = useRef<ReturnType<typeof setTimeout> | null>(null);
   const registrando = useRef(false);
   const pode = al === 'dentro' && !alvo.conquistado;
@@ -528,15 +703,19 @@ function BotaoBalancar({
     soltar.current = setTimeout(() => setArmado(false), 800);
   };
 
-  if (pode && !permissaoDeMovimento.liberada())
+  // Um toque (click) antes de segurar: libera som, vibração e, no iPhone, os sensores.
+  if (pode && (!permissaoDeMovimento.liberada() || precisaDeToqueParaFeedback()))
     return (
       <button
         type="button"
         data-testid="balancar"
-        onClick={() => void pedirPermissaoDeMovimento()}
+        onClick={() => {
+          destravarSom();
+          void pedirPermissaoDeMovimento().finally(() => setAtivado((n) => n + 1));
+        }}
         className="mb-4 flex h-[72px] shrink-0 flex-col items-center justify-center rounded-[18px] bg-alerta font-display text-xl font-bold text-[#2a1e05]"
       >
-        Toque para ativar os sensores
+        Toque para ativar som e sensores
       </button>
     );
 
@@ -579,7 +758,7 @@ function BotaoBalancar({
       }`}
     >
       <span className="font-display text-[23px] font-bold">{armado ? 'Segurando…' : 'Segura e balança!'}</span>
-      <span className="text-[13px] font-semibold opacity-85">{armado ? 'solte para cancelar' : 'segure o botão e sacuda'}</span>
+      <span className="text-[13px] font-semibold opacity-85">{armado ? 'solte para cancelar' : 'segure o botão e balance'}</span>
     </button>
   );
 }

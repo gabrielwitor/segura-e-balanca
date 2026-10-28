@@ -77,7 +77,7 @@ export function EditorPonto({
           <Campo id="ra" rotulo="Raio m" inputMode="numeric" value={f.raio} onChange={(e) => setF({ ...f, raio: e.target.value })} />
           <Campo
             id="sc"
-            rotulo="Sacudidas"
+            rotulo="Balanços"
             inputMode="numeric"
             value={f.sacudidas}
             aria-invalid={!sacudidasOk}
@@ -87,7 +87,7 @@ export function EditorPonto({
         </div>
         {!sacudidasOk && (
           <p id="sc-erro" role="alert" className="-mt-1.5 mb-0 text-[13px] text-perigo">
-            Sacudidas: de {SACUDIDAS_MIN} a {SACUDIDAS_MAX}.
+            Balanços: de {SACUDIDAS_MIN} a {SACUDIDAS_MAX}.
           </p>
         )}
         <Campo id="dc" rotulo="Dica (opcional)" value={f.dica} onChange={(e) => setF({ ...f, dica: e.target.value })} />

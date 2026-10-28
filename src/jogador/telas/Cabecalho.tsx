@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import { Icone, type NomeIcone } from '@/ui/Icone';
 import { hora } from '@/ui/tempo';
 import type { DadosDoJogo } from '../dados';
@@ -6,19 +6,77 @@ import { useConexao } from '../dados';
 import { monitor, sync } from '../servicos';
 import { nomeDaPista } from './Radar';
 
+/** Último placar mostrado por jogador: o cabeçalho desmonta na tela de resultado e precisa lembrar. */
+const ultimoPlacar = new Map<string, number>();
+
+const reduzMovimento = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/** Pontos subiram: o "+N" voa do meio da tela até o placar, que rola até o valor novo e dá um pulo. */
+function usePlacarAnimado(uid: string, pontos: number, placar: RefObject<HTMLElement | null>) {
+  const [mostrado, setMostrado] = useState(() => Math.min(ultimoPlacar.get(uid) ?? pontos, pontos));
+  const [voo, setVoo] = useState<{ delta: number; x: number; y: number; n: number } | null>(null);
+  const [pulo, setPulo] = useState(0);
+  useEffect(() => {
+    const antes = ultimoPlacar.get(uid);
+    ultimoPlacar.set(uid, pontos);
+    if (antes == null || pontos <= antes || reduzMovimento()) {
+      setMostrado(pontos);
+      return;
+    }
+    const r = placar.current?.getBoundingClientRect();
+    setMostrado(antes);
+    setVoo({ delta: pontos - antes, n: performance.now(), x: r ? r.left + 40 - innerWidth / 2 : 0, y: r ? r.top + r.height / 2 - innerHeight / 2 : -300 });
+    let quadro = 0;
+    const chegada = setTimeout(() => {
+      setPulo((n) => n + 1);
+      const inicio = performance.now();
+      const passo = (agora: number) => {
+        const p = Math.min(1, (agora - inicio) / 400);
+        setMostrado(Math.round(antes + (pontos - antes) * p));
+        if (p < 1) quadro = requestAnimationFrame(passo);
+      };
+      quadro = requestAnimationFrame(passo);
+    }, 1000);
+    return () => {
+      clearTimeout(chegada);
+      cancelAnimationFrame(quadro);
+      setMostrado(pontos);
+    };
+  }, [uid, pontos, placar]);
+  return { mostrado, voo, pulo, pousou: () => setVoo(null) };
+}
+
 /** Topo do jogo: apelido, posição provisória, pontos e o estado de conexão (RF-30). */
 export function Cabecalho({ uid, apelido, dados }: { uid: string; apelido: string; dados: DadosDoJogo }) {
   const minha = dados.ranking.ranking.find((l) => l.uid === uid);
   const oficial = dados.partida?.estado === 'finalizada';
+  const placar = useRef<HTMLDivElement>(null);
+  const { mostrado, voo, pulo, pousou } = usePlacarAnimado(uid, minha?.pontos ?? 0, placar);
   return (
     <header className="flex items-center justify-between gap-3">
+      {voo && (
+        <span
+          key={voo.n}
+          onAnimationEnd={pousou}
+          className="efeito-voa-pontos pointer-events-none fixed top-1/2 left-1/2 z-50 rounded-full bg-verde px-[18px] py-2.5 font-display text-[30px] font-bold text-verde-tinta shadow-[0_8px_30px_rgba(67,224,138,0.45)]"
+          style={{ '--x': `${voo.x}px`, '--y': `${voo.y}px` } as React.CSSProperties}
+          aria-hidden="true"
+        >
+          +{voo.delta}
+        </span>
+      )}
       <div className="flex min-w-0 flex-col gap-px">
         <div className="truncate text-[13px] text-suave">
           {apelido}
           {minha ? ` · ${minha.pos}º ${oficial ? 'final' : 'provisório'}` : ''}
         </div>
-        <div className="font-display text-[26px] leading-tight font-bold" data-testid="meus-pontos">
-          {minha?.pontos ?? 0} pts
+        <div
+          ref={placar}
+          key={pulo}
+          className={`font-display text-[26px] leading-tight font-bold tabular-nums ${pulo > 0 ? 'efeito-pulo-placar' : ''}`}
+          data-testid="meus-pontos"
+        >
+          {mostrado} pts
         </div>
       </div>
       <ChipConexao dados={dados} />
