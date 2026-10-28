@@ -5,6 +5,7 @@ import { escutarServidor, guardarInstantaneo } from '@/sync/pull';
 import { Sincronizador } from '@/sync/saida';
 import type { Cancelar } from '@/sync/remoto';
 import { RemotoFirebase } from '@/firebase/remoto';
+import { destravarNoPrimeiroToque } from './feedback';
 
 /**
  * Seção 5: a UI lê e escreve só no store local; o módulo de sync é a única ponte.
@@ -24,6 +25,7 @@ let escuta: Cancelar | null = null;
 export async function iniciarServicos(): Promise<void> {
   if (iniciado) return;
   iniciado = true;
+  destravarNoPrimeiroToque();
   await obterAparelho(db);
   await relogio.carregar();
   await sync.recuperarAoAbrir();

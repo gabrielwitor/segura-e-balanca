@@ -46,10 +46,42 @@ export function destravarSom(): void {
     const sessao = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
     if (sessao) sessao.type = 'ambient';
     audio ??= new AudioContext();
-    if (audio.state === 'suspended') void audio.resume();
+    if (audio.state !== 'running') {
+      void audio.resume();
+      // O iOS só considera o áudio liberado depois de tocar algo dentro do gesto: 1 amostra muda.
+      const mudo = audio.createBufferSource();
+      mudo.buffer = audio.createBuffer(1, 1, 22050);
+      mudo.connect(audio.destination);
+      mudo.start(0);
+    }
   } catch {
     audio = null;
   }
+}
+
+/**
+ * Destrava o áudio no primeiro toque em qualquer lugar do app (não só no botão de balançar):
+ * sem isso, quem reabre o app direto no radar não ouve o esquentou/esfriou nem o bipe.
+ */
+export function destravarNoPrimeiroToque(): void {
+  const eventos = ['pointerdown', 'touchend', 'keydown'] as const;
+  const tentar = () => {
+    destravarSom();
+    if (audio?.state === 'running') eventos.forEach((e) => document.removeEventListener(e, tentar, true));
+  };
+  eventos.forEach((e) => document.addEventListener(e, tentar, true));
+}
+
+export interface Diagnostico {
+  som: 'ativo' | 'aguardando-toque' | 'sem-suporte';
+  vibracao: 'suportada' | 'iphone-so-no-toque' | 'sem-suporte';
+}
+
+export function diagnostico(): Diagnostico {
+  const som = typeof AudioContext === 'undefined' ? 'sem-suporte' : audio?.state === 'running' ? 'ativo' : 'aguardando-toque';
+  const vibracao =
+    typeof navigator.vibrate === 'function' ? 'suportada' : /iPhone|iPad|iPod/.test(navigator.userAgent) ? 'iphone-so-no-toque' : 'sem-suporte';
+  return { som, vibracao };
 }
 
 /** Nota com timbre de marimba: ataque curto, decaimento rápido, um harmônico suave. */
@@ -116,7 +148,10 @@ function vibrar(padrao: number | number[]): void {
     navigator.vibrate(padrao);
     return;
   }
-  // iOS ≥ 17.4: alternar um <input switch> dá um toque háptico (não documentado; seção 9.2).
+  // iOS 18+: alternar um <input switch> dá um toque háptico (não documentado; seção 9.2).
+  // Só funciona dentro de um toque na tela; fora disso (acelerômetro, radar) o iOS ignora.
+  const ativacao = (navigator as Navigator & { userActivation?: { isActive: boolean } }).userActivation;
+  if (ativacao && !ativacao.isActive) return;
   const agora = performance.now();
   if (agora - ultimoToqueIos < 80) return;
   ultimoToqueIos = agora;
@@ -197,5 +232,15 @@ export const feedback = {
   },
   balancoFraco() {
     vibrar([30, 40, 30]);
+  },
+  /** Toque ao começar a segurar o botão: no iPhone é a vibração que o iOS deixa dar. */
+  armou() {
+    vibrar(25);
+  },
+  /** Botão "Testar" dos ajustes: som e vibração dentro do mesmo toque. */
+  testar() {
+    destravarSom();
+    tocar(() => [DO5, MI5, SOL5, DO6].forEach((f, i) => nota(f, i * 0.08, 0.4)));
+    vibrar([80, 60, 160]);
   },
 };
