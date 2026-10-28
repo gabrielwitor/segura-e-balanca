@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { TTL_VALOR_MS } from '@/dominio/constantes';
 import { nivelDoValor, type NivelValor } from '@/dominio/pontuacao';
 import { alcance, faixaDaDistancia, haversine, rumo, setor, tendencia, type AmostraDistancia, type Alcance, type Faixa, type Tendencia } from '@/dominio/radar';
@@ -7,11 +7,12 @@ import type { PontoLocal } from '@/sync/db';
 import { Icone } from '@/ui/Icone';
 import { pontoConquistado, useAgora, useConexao, type DadosDoJogo, type Sessao } from '../dados';
 import { db, relogio, sync } from '../servicos';
-import { pedirPermissaoDeMovimento, useBalanco, useBussola, usePosicao, type Leitura } from '../sensores';
+import { pedirLocalizacao, pedirPermissaoDeMovimento, permissaoDeMovimento, useBalanco, useBussola, usePosicao, type Leitura } from '../sensores';
 import { destravarSom, feedback } from '../feedback';
 import { Cabecalho } from './Cabecalho';
 import { EstadoVazio } from './EstadoVazio';
 import { Balancou } from './Balancou';
+import { PermissaoNegada } from './PermissaoNegada';
 
 export const nomeDaPista = (p: Pick<PontoLocal, 'numero'>) => `Pista ${p.numero}`;
 
@@ -103,6 +104,8 @@ export function Radar({ uid, apelido, dados, sessao, irParaRanking }: Props) {
 
   useFeedbackDoRadar(alvo, al, jogavel);
 
+  const movimentoLiberado = useSyncExternalStore(permissaoDeMovimento.inscrever, permissaoDeMovimento.liberada);
+  const [guiaLocalizacao, setGuiaLocalizacao] = useState(false);
   const [resultado, setResultado] = useState<string | null>(null);
   const [armado, setArmado] = useState(false);
   const [picos, setPicos] = useState(0);
@@ -121,6 +124,13 @@ export function Radar({ uid, apelido, dados, sessao, irParaRanking }: Props) {
           irParaRanking={irParaRanking}
         />
       </>
+    );
+
+  if (guiaLocalizacao)
+    return (
+      <div className="fixed inset-0 z-50 overflow-auto bg-noite">
+        <PermissaoNegada aoTentar={() => void pedirLocalizacao().then((r) => r !== 'negada' && setGuiaLocalizacao(false))} aoVerRanking={irParaRanking} />
+      </div>
     );
 
   if (resultado)
@@ -144,11 +154,26 @@ export function Radar({ uid, apelido, dados, sessao, irParaRanking }: Props) {
         <>
           <Cabecalho uid={uid} apelido={apelido} dados={dados} />
           {gps.tipo === 'negado' ? (
-            <p role="alert" className="m-0 rounded-2xl bg-erro-fundo p-4 text-erro-texto">
-              Localização negada. Libere nas configurações do navegador.
-            </p>
+            <div role="alert" className="flex items-center gap-3 rounded-2xl bg-erro-fundo py-3 pr-3 pl-4 text-erro-texto">
+              <Icone nome="localNegado" tamanho={22} className="shrink-0" />
+              <span className="grow font-semibold">Localização negada</span>
+              <button type="button" onClick={() => setGuiaLocalizacao(true)} className="h-11 shrink-0 rounded-xl bg-texto px-4 text-sm font-bold text-noite">
+                Como liberar
+              </button>
+            </div>
           ) : (
             alvo && <Banner alvo={alvo} leitura={leitura} al={al} />
+          )}
+          {!movimentoLiberado && (
+            <button
+              type="button"
+              onClick={() => void pedirPermissaoDeMovimento()}
+              className="flex min-h-12 items-center gap-3 rounded-2xl border border-alerta-borda bg-alerta-fundo px-4 text-left font-semibold text-morno-texto"
+            >
+              <Icone nome="balancar" tamanho={22} />
+              <span className="grow">Ativar sensores</span>
+              <Icone nome="avancar" tamanho={18} />
+            </button>
           )}
           {heading != null && leitura ? (
             <>
@@ -495,7 +520,6 @@ function BotaoBalancar({
     if (!pode) return;
     destravarSom();
     feedback.armou();
-    void pedirPermissaoDeMovimento();
     if (soltar.current) clearTimeout(soltar.current);
     setArmado(true);
   };
@@ -503,6 +527,18 @@ function BotaoBalancar({
     if (soltar.current) clearTimeout(soltar.current);
     soltar.current = setTimeout(() => setArmado(false), 800);
   };
+
+  if (pode && !permissaoDeMovimento.liberada())
+    return (
+      <button
+        type="button"
+        data-testid="balancar"
+        onClick={() => void pedirPermissaoDeMovimento()}
+        className="mb-4 flex h-[72px] shrink-0 flex-col items-center justify-center rounded-[18px] bg-alerta font-display text-xl font-bold text-[#2a1e05]"
+      >
+        Toque para ativar os sensores
+      </button>
+    );
 
   if (!pode) {
     const texto = alvo.conquistado ? 'Você já balançou aqui' : al === 'gps-impreciso' || !leitura ? 'Esperando o GPS…' : 'Chegue na área para balançar';

@@ -7,6 +7,7 @@ import type { Cancelar } from '@/sync/remoto';
 import { RemotoFirebase } from '@/firebase/remoto';
 import { sair } from '@/firebase/conta';
 import { destravarNoPrimeiroToque } from './feedback';
+import { pedirMovimentoNoPrimeiroToque } from './sensores';
 
 /**
  * Seção 5: a UI lê e escreve só no store local; o módulo de sync é a única ponte.
@@ -27,6 +28,7 @@ export async function iniciarServicos(): Promise<void> {
   if (iniciado) return;
   iniciado = true;
   destravarNoPrimeiroToque();
+  pedirMovimentoNoPrimeiroToque();
   await obterAparelho(db);
   await relogio.carregar();
   await sync.recuperarAoAbrir();

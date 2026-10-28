@@ -3,19 +3,64 @@ import { DetectorDeBalanco } from '@/dominio/balanco';
 
 type ComPermissao = { requestPermission?: () => Promise<'granted' | 'denied'> };
 
-/** RF-05: o iOS só libera movimento e orientação dentro de um gesto do usuário. */
+const motion = () => (globalThis as { DeviceMotionEvent?: ComPermissao }).DeviceMotionEvent;
+const orient = () => (globalThis as { DeviceOrientationEvent?: ComPermissao }).DeviceOrientationEvent;
+
+const ehIos = () =>
+  typeof navigator !== 'undefined' &&
+  (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+
+/**
+ * Só o iOS bloqueia movimento e orientação até o pedido explícito. O Chrome recente também expõe
+ * requestPermission, mas os sensores funcionam sem ele: lá não exigimos nada (nem bloqueamos o botão).
+ */
+export const movimentoPrecisaDePermissao = () =>
+  ehIos() && (typeof motion()?.requestPermission === 'function' || typeof orient()?.requestPermission === 'function');
+
+/**
+ * O iOS esquece a permissão a cada carregamento da página (atualização, recarga): é preciso pedir
+ * de novo, dentro de um toque. Se já foi dada antes, libera sem mostrar nada.
+ */
+let liberadoNestaPagina = !movimentoPrecisaDePermissao();
+const ouvintes = new Set<() => void>();
+
+export const permissaoDeMovimento = {
+  liberada: () => liberadoNestaPagina,
+  inscrever(cb: () => void) {
+    ouvintes.add(cb);
+    return () => ouvintes.delete(cb);
+  },
+};
+
+/** RF-05: precisa rodar dentro de um toque (click/touchend; no iOS, pointerdown não serve). */
 export async function pedirPermissaoDeMovimento(): Promise<boolean> {
   const pedidos: Promise<'granted' | 'denied'>[] = [];
-  const motion = (globalThis as { DeviceMotionEvent?: ComPermissao }).DeviceMotionEvent;
-  const orient = (globalThis as { DeviceOrientationEvent?: ComPermissao }).DeviceOrientationEvent;
-  if (typeof motion?.requestPermission === 'function') pedidos.push(motion.requestPermission());
-  if (typeof orient?.requestPermission === 'function') pedidos.push(orient.requestPermission());
+  const m = motion();
+  const o = orient();
+  if (typeof m?.requestPermission === 'function') pedidos.push(m.requestPermission());
+  if (typeof o?.requestPermission === 'function') pedidos.push(o.requestPermission());
   try {
     const r = await Promise.all(pedidos);
-    return r.every((x) => x === 'granted');
+    const ok = r.every((x) => x === 'granted');
+    if (ok && !liberadoNestaPagina) {
+      liberadoNestaPagina = true;
+      ouvintes.forEach((cb) => cb());
+    }
+    return ok;
   } catch {
     return false;
   }
+}
+
+/** Depois de recarregar, pede de novo no primeiro toque válido em qualquer lugar do app. */
+export function pedirMovimentoNoPrimeiroToque(): void {
+  if (liberadoNestaPagina) return;
+  const eventos = ['touchend', 'click'] as const;
+  const tentar = () => {
+    eventos.forEach((e) => document.removeEventListener(e, tentar, true));
+    void pedirPermissaoDeMovimento();
+  };
+  eventos.forEach((e) => document.addEventListener(e, tentar, true));
 }
 
 export function pedirLocalizacao(): Promise<'ok' | 'negada' | 'indisponivel'> {
