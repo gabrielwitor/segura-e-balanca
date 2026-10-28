@@ -56,7 +56,11 @@ export async function pedirPermissaoDeMovimento(): Promise<boolean> {
 export function pedirMovimentoNoPrimeiroToque(): void {
   if (liberadoNestaPagina) return;
   const eventos = ['touchend', 'click'] as const;
+  // Trava própria: um toque gera touchend e click, e o pedido deve sair uma vez só.
+  let pedido = false;
   const tentar = () => {
+    if (pedido) return;
+    pedido = true;
     eventos.forEach((e) => document.removeEventListener(e, tentar, true));
     void pedirPermissaoDeMovimento();
   };
