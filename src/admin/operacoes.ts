@@ -73,6 +73,22 @@ export const moverPonto = (id: string, lat: number, lng: number) => updateDoc(re
 /** RF-52: desativadoEm registrado; balançadas depois disso não pontuam (RF-37). */
 export const desativarPonto = (id: string) => updateDoc(ref.ponto(id), { ativo: false, desativadoEm: agoraNoServidor() });
 
+/** Excluir só sem jogo rodando; com a partida ativa ou pausada, o caminho é desativar (RF-52). */
+export const podeExcluirPonto = (partida: Partida | null) => !partida || partida.estado === 'rascunho' || partida.estado === 'finalizada';
+
+/**
+ * Apaga o ponto e a fila dele na partida atual, e renumera os seguintes para as pistas
+ * continuarem 1, 2, 3… Partidas finalizadas não mudam: o ranking final delas está congelado.
+ */
+export async function excluirPonto(ponto: Ponto, pontos: Ponto[], partida: Partida | null): Promise<void> {
+  if (!podeExcluirPonto(partida)) throw new Error('Com a partida em andamento, desative o ponto em vez de excluir.');
+  const b = writeBatch(fs);
+  b.delete(ref.ponto(ponto.id));
+  if (partida && partida.estado === 'rascunho') b.delete(ref.fila(partida.id, ponto.id));
+  for (const p of pontos) if (p.numero > ponto.numero) b.update(ref.ponto(p.id), { numero: p.numero - 1 });
+  await b.commit();
+}
+
 /** RF-53 */
 export const anularEntrada = (partidaId: string, pontoId: string, chave: string) =>
   updateDoc(ref.fila(partidaId, pontoId), new FieldPath('entradas', chave, 'anulada'), true);

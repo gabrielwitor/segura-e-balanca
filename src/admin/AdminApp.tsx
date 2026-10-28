@@ -105,7 +105,7 @@ function Painel({ uid }: { uid: string }) {
 
   const painelPonto = ponto ? (
     <>
-      <EditorPonto ponto={ponto} proximaPos={(ranking.filas.get(ponto.id)?.length ?? 0) + 1} />
+      <EditorPonto ponto={ponto} pontos={pontos} partida={partida} proximaPos={(ranking.filas.get(ponto.id)?.length ?? 0) + 1} />
       <div className="p-5">
         <FilaDoPonto ponto={ponto} fila={filas[ponto.id]} partida={partida} ranking={ranking} apelidos={apelidos} />
       </div>
@@ -152,7 +152,7 @@ function Painel({ uid }: { uid: string }) {
             <div className="flex flex-col gap-4 bg-[#FAFAFA] p-4">
               {ponto ? (
                 <>
-                  <EditorPonto ponto={ponto} proximaPos={(ranking.filas.get(ponto.id)?.length ?? 0) + 1} />
+                  <EditorPonto ponto={ponto} pontos={pontos} partida={partida} proximaPos={(ranking.filas.get(ponto.id)?.length ?? 0) + 1} />
                   <FilaDoPonto ponto={ponto} fila={filas[ponto.id]} partida={partida} ranking={ranking} apelidos={apelidos} compacto />
                 </>
               ) : (

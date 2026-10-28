@@ -4,14 +4,25 @@ import type { EntradaNaFila, ResultadoRanking } from '@/dominio/ranking';
 import type { Fila, Partida, Ponto } from '@/dominio/tipos';
 import { hora } from '@/ui/tempo';
 import { Icone } from '@/ui/Icone';
-import { anularEntrada, desativarPonto, salvarPonto } from './operacoes';
+import { anularEntrada, desativarPonto, excluirPonto, podeExcluirPonto, salvarPonto } from './operacoes';
 import { Botao, Campo, Confirmar, Selo } from './componentes';
 
 /** RF-51/52: edição do ponto. Percentuais na tela, frações no banco. */
-export function EditorPonto({ ponto, proximaPos }: { ponto: Ponto; proximaPos: number }) {
+export function EditorPonto({
+  ponto,
+  pontos,
+  partida,
+  proximaPos,
+}: {
+  ponto: Ponto;
+  pontos: Ponto[];
+  partida: Partida | null;
+  proximaPos: number;
+}) {
   const [f, setF] = useState(() => paraForm(ponto));
   const [msg, setMsg] = useState<string | null>(null);
-  const [confirmar, setConfirmar] = useState(false);
+  const [confirmar, setConfirmar] = useState<'desativar' | 'excluir' | null>(null);
+  const excluivel = podeExcluirPonto(partida);
   useEffect(() => {
     setF(paraForm(ponto));
     setMsg(null);
@@ -68,7 +79,13 @@ export function EditorPonto({ ponto, proximaPos }: { ponto: Ponto; proximaPos: n
           <Botao variante="primario" type="submit" disabled={!valido}>
             Salvar
           </Botao>
-          {ponto.ativo && <Botao onClick={() => setConfirmar(true)}>Desativar ponto</Botao>}
+          {excluivel ? (
+            <Botao onClick={() => setConfirmar('excluir')} className="text-perigo-texto">
+              Excluir ponto
+            </Botao>
+          ) : (
+            ponto.ativo && <Botao onClick={() => setConfirmar('desativar')}>Desativar ponto</Botao>
+          )}
         </div>
         {msg && (
           <p className="m-0 text-[13px] text-tinta-suave" role="status">
@@ -76,13 +93,31 @@ export function EditorPonto({ ponto, proximaPos }: { ponto: Ponto; proximaPos: n
           </p>
         )}
       </form>
-      {confirmar && (
+      {confirmar === 'excluir' && (
+        <Confirmar
+          titulo={`Excluir o ponto ${ponto.numero}?`}
+          rotuloOk="Excluir"
+          perigo
+          aoCancelar={() => setConfirmar(null)}
+          aoConfirmar={() =>
+            void excluirPonto(ponto, pontos, partida)
+              .catch((e) => setMsg(`Não excluiu: ${e instanceof Error ? e.message : e}`))
+              .finally(() => setConfirmar(null))
+          }
+        >
+          <p className="m-0">
+            O ponto some do mapa e do radar dos jogadores no próximo sync.
+            {pontos.some((p) => p.numero > ponto.numero) && ' Os pontos seguintes são renumerados para as pistas continuarem em sequência.'}
+          </p>
+        </Confirmar>
+      )}
+      {confirmar === 'desativar' && (
         <Confirmar
           titulo={`Desativar o ponto ${ponto.numero}?`}
           rotuloOk="Desativar"
           perigo
-          aoCancelar={() => setConfirmar(false)}
-          aoConfirmar={() => void desativarPonto(ponto.id).finally(() => setConfirmar(false))}
+          aoCancelar={() => setConfirmar(null)}
+          aoConfirmar={() => void desativarPonto(ponto.id).finally(() => setConfirmar(null))}
         >
           <p className="m-0">Ele some do radar no próximo sync. Balançadas feitas antes de agora continuam valendo; as de depois não contam.</p>
         </Confirmar>

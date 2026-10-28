@@ -6,7 +6,7 @@ import {
   initializeTestEnvironment,
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { deleteField, doc, FieldPath, getDoc, serverTimestamp, setDoc, updateDoc, writeBatch } from 'firebase/firestore';
+import { deleteDoc, deleteField, doc, FieldPath, getDoc, serverTimestamp, setDoc, updateDoc, writeBatch } from 'firebase/firestore';
 
 let env: RulesTestEnvironment;
 const DISP = '0b6f6a3e-7c1e-4c1a-9a51-0e0a8f0f3a11';
@@ -106,6 +106,14 @@ describe('admin (RF-50)', () => {
     await assertFails(updateDoc(doc(jogador(), 'partidas/p1'), { estado: 'finalizada' }));
     await assertSucceeds(setDoc(doc(admin(), 'pontos/X'), { lat: 0 }));
     await assertSucceeds(updateDoc(doc(admin(), 'partidas/p1'), { estado: 'pausada' }));
+  });
+
+  it('só admin exclui ponto e fila', async () => {
+    await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'pontos/X'), { lat: 0 }));
+    await assertFails(deleteDoc(doc(jogador(), 'pontos/X')));
+    await assertFails(deleteDoc(doc(jogador(), 'partidas/p1/filas/A')));
+    await assertSucceeds(deleteDoc(doc(admin(), 'pontos/X')));
+    await assertSucceeds(deleteDoc(doc(admin(), 'partidas/p1/filas/A')));
   });
 
   it('ninguém se promove a admin', async () => {
