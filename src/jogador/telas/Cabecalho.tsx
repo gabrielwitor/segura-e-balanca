@@ -4,7 +4,7 @@ import { hora } from '@/ui/tempo';
 import type { DadosDoJogo } from '../dados';
 import { useConexao } from '../dados';
 import { monitor, sync } from '../servicos';
-import { nomeDaPista } from './Radar';
+import { nomeDoPonto } from '../alvos';
 import { Sobreposicao } from './Tela';
 
 /** Último placar mostrado por jogador: o cabeçalho desmonta na tela de resultado e precisa lembrar. */
@@ -178,7 +178,7 @@ function PainelConexao({ dados, fechar }: { dados: DadosDoJogo; fechar: () => vo
                   const ponto = dados.pontos.find((x) => x.id === i.pontoId);
                   return (
                     <li key={i.chave} className="flex min-h-12 items-center justify-between border-b border-borda px-3.5 text-[15px] last:border-0">
-                      <span>{ponto ? nomeDaPista(ponto) : 'Pista'}</span>
+                      <span>{ponto ? nomeDoPonto(ponto) : 'Ponto'}</span>
                       <span className="text-[13px] text-suave">{hora(i.entrada.t)}</span>
                     </li>
                   );

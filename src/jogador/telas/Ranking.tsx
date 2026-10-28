@@ -5,7 +5,7 @@ import { haQuanto } from '@/ui/tempo';
 import { useAgora, useConexao, type DadosDoJogo, type MinhaBalancada, type Sessao } from '../dados';
 import { db, sairDaConta } from '../servicos';
 import { estaInstalado } from '../instalacao';
-import { nomeDaPista } from './Radar';
+import { nomeDoPonto } from '../alvos';
 import { AjustesFeedback } from './AjustesFeedback';
 import { ChipConexao } from './Cabecalho';
 import { Sobreposicao } from './Tela';
@@ -177,7 +177,7 @@ function MinhasBalancadas({ minhas, dados }: { minhas: MinhaBalancada[]; dados: 
           return (
             <li key={m.chave} className="flex min-h-11 items-center justify-between gap-2.5 rounded-xl bg-painel px-3.5">
               <span className="text-[15px]">
-                {p ? nomeDaPista(p) : 'Pista'}
+                {p ? nomeDoPonto(p) : 'Ponto'}
                 {m.outroAparelho && <span className="text-suave"> · outro aparelho</span>}
               </span>
               <span className={`rounded-full px-2.5 py-0.5 text-[13px] font-bold ${c.cls}`}>{c.texto}</span>

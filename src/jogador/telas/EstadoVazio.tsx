@@ -3,7 +3,7 @@ import { Icone, type NomeIcone } from '@/ui/Icone';
 import { hora, haQuanto } from '@/ui/tempo';
 import { useAgora } from '../dados';
 
-/** Tela 13 · pausado (RF-18), partida em rascunho, sem pistas e encerrada. */
+/** Tela 13 · pausado (RF-18), partida em rascunho, sem pontos e encerrada. */
 export function EstadoVazio({
   partida,
   semPontos,
@@ -35,7 +35,7 @@ export function EstadoVazio({
     };
   else if (!partida || partida.estado === 'rascunho')
     t = { icone: 'relogio', cor: 'bg-painel text-suave', titulo: 'A partida ainda não começou', texto: 'O radar aparece quando abrir.', status: verificado, botao: 'Ver ranking', forte: false };
-  else t = { icone: 'local', cor: 'bg-painel text-suave', titulo: semPontos ? 'Nenhuma pista no momento' : 'Sem pistas', texto: '', status: verificado, botao: 'Ver ranking', forte: false };
+  else t = { icone: 'local', cor: 'bg-painel text-suave', titulo: semPontos ? 'Nenhum ponto no momento' : 'Sem pontos', texto: '', status: verificado, botao: 'Ver ranking', forte: false };
 
   return (
     <section className="flex grow flex-col" data-testid="estado-vazio">

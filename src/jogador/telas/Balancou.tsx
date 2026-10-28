@@ -3,7 +3,7 @@ import { Icone } from '@/ui/Icone';
 import { hora } from '@/ui/tempo';
 import type { DadosDoJogo } from '../dados';
 import { feedback } from '../feedback';
-import { nomeDaPista } from './Radar';
+import { nomeDoPonto } from '../alvos';
 
 const reduzMovimento = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -94,7 +94,7 @@ export function Balancou({ chave, dados, voltar, irParaRanking }: { chave: strin
   switch (s.tipo) {
     case 'valida':
       titulo = `${s.pos}º lugar · +${pts}`;
-      sub = ponto ? nomeDaPista(ponto) : '';
+      sub = ponto ? nomeDoPonto(ponto) : '';
       terceiro = { texto: `${s.pos}º lugar`, quando: '', feito: true };
       break;
     case 'pendente':
@@ -116,8 +116,8 @@ export function Balancou({ chave, dados, voltar, irParaRanking }: { chave: strin
       break;
     case 'desativado':
       titulo = 'Não contou';
-      sub = 'A pista tinha sido desativada.';
-      terceiro = { texto: 'Pista desativada', quando: '', feito: true };
+      sub = 'O ponto tinha sido desativado.';
+      terceiro = { texto: 'Ponto desativado', quando: '', feito: true };
       break;
     case 'rejeitada':
       titulo = 'Não contou';
@@ -126,7 +126,7 @@ export function Balancou({ chave, dados, voltar, irParaRanking }: { chave: strin
       break;
     case 'anulada':
       titulo = 'Anulada';
-      sub = 'Você pode balançar esta pista de novo.';
+      sub = 'Você pode balançar este ponto de novo.';
       terceiro = { texto: 'Anulada', quando: '', feito: true };
       break;
   }
@@ -184,7 +184,7 @@ export function Balancou({ chave, dados, voltar, irParaRanking }: { chave: strin
           onClick={voltar}
           className={`h-14 rounded-2xl font-display text-lg font-bold ${ok ? 'bg-verde-tinta text-verde' : 'bg-texto text-noite'}`}
         >
-          {ok ? 'Próxima pista' : 'Voltar ao radar'}
+          {ok ? 'Próximo ponto' : 'Voltar ao radar'}
         </button>
         <button
           type="button"

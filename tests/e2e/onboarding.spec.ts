@@ -10,7 +10,7 @@ test('dicas em tela cheia levam ao treino, e balançar no treino libera o jogo',
   await entrarNoJogo(page, 'novo', 'Novo', { dicas: 'manter' });
   await expect(page.getByRole('heading', { name: 'Siga a temperatura' })).toBeVisible();
   await page.getByRole('button', { name: 'Próxima' }).click();
-  await expect(page.getByRole('heading', { name: 'Escolha uma pista' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Escolha um ponto' })).toBeVisible();
   await page.getByRole('button', { name: 'Próxima' }).click();
   await expect(page.getByRole('heading', { name: 'Segure e balance' })).toBeVisible();
   await page.getByRole('button', { name: 'Experimentar' }).click();
