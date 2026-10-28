@@ -7,6 +7,7 @@ import { nomeDaPista } from './Radar';
 import { Cabecalho } from './Cabecalho';
 import { Girando } from './Tela';
 import { AjustesFeedback } from './AjustesFeedback';
+import { estaInstalado } from '../instalacao';
 
 interface Linha {
   uid: string;
@@ -22,12 +23,14 @@ export function Ranking({
   dados,
   sessao,
   abrirHistorico,
+  abrirInstalar,
 }: {
   uid: string;
   apelido: string;
   dados: DadosDoJogo;
   sessao: Sessao;
   abrirHistorico: () => void;
+  abrirInstalar: () => void;
 }) {
   const conexao = useConexao();
   const agora = useAgora(15_000);
@@ -100,6 +103,12 @@ export function Ranking({
           <Icone nome="avancar" tamanho={16} />
         </span>
       </button>
+      {!estaInstalado() && (
+        <button type="button" onClick={abrirInstalar} className="flex h-12 items-center justify-between rounded-2xl border border-borda px-4 text-left">
+          <span>Instalar o app</span>
+          <Icone nome="avancar" tamanho={16} className="text-suave" />
+        </button>
+      )}
       <div className="mb-4">
         <AjustesFeedback />
       </div>

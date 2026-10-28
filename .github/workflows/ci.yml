@@ -49,15 +49,22 @@ jobs:
     runs-on: ubuntu-latest
     permissions: { contents: read, pull-requests: write, checks: write }
     environment: ${{ github.event_name == 'push' && 'producao' || 'preview' }}
+    # Sem as contas de serviço (seção 15.4) o deploy é pulado com aviso, sem deixar o CI vermelho.
+    env:
+      SA_DEV: ${{ secrets.FIREBASE_SA_DEV }}
+      SA_PROD: ${{ secrets.FIREBASE_SA_PROD }}
     steps:
+      - if: (github.event_name == 'pull_request' && env.SA_DEV == '') || (github.event_name == 'push' && env.SA_PROD == '')
+        run: echo "::notice::Deploy pulado. Configure os secrets FIREBASE_SA_DEV/FIREBASE_SA_PROD (seção 15.4 do design)."
+
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
       - run: npm ci
       # PR → canal de preview no segura-e-balanca-dev (link comentado no PR, expira em 7 dias)
-      - if: github.event_name == 'pull_request'
+      - if: github.event_name == 'pull_request' && env.SA_DEV != ''
         run: npm run build -- --mode dev
-      - if: github.event_name == 'pull_request'
+      - if: github.event_name == 'pull_request' && env.SA_DEV != ''
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
@@ -65,10 +72,10 @@ jobs:
           projectId: segura-e-balanca-dev
           expires: 7d
       # main → produção: app + regras + índices
-      - if: github.event_name == 'push'
+      - if: github.event_name == 'push' && env.SA_PROD != ''
         run: npm run build -- --mode prod
-      - if: github.event_name == 'push'
+      - if: github.event_name == 'push' && env.SA_PROD != ''
         uses: google-github-actions/auth@v2
         with: { credentials_json: '${{ secrets.FIREBASE_SA_PROD }}' }
-      - if: github.event_name == 'push'
+      - if: github.event_name == 'push' && env.SA_PROD != ''
         run: npx firebase deploy --only hosting,firestore:rules,firestore:indexes --project prod --non-interactive

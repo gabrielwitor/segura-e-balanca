@@ -55,6 +55,12 @@ export async function carregarPerfil(uid: string): Promise<Perfil | null> {
 
 export class ApelidoEmUso extends Error {}
 
+/** RF-02: livre se ninguém reservou o normalizado, ou se a reserva é deste jogador. */
+export async function apelidoLivre(uid: string, apelido: string): Promise<boolean> {
+  const s = await getDocFromServer(ref.apelido(normalizarApelido(limparApelido(apelido))));
+  return !s.exists() || s.get('uid') === uid;
+}
+
 /** RF-02: reserva o apelido normalizado e cria o jogador numa transação. */
 export async function reservarApelido(uid: string, apelido: string): Promise<string> {
   const erro = validarApelido(apelido);

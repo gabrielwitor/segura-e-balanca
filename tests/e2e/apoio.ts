@@ -60,9 +60,16 @@ export async function entrarNoJogo(page: Page, uid: string, apelido: string, { n
     ([u, n]) => (window as unknown as { __seb: { entrar: (a: string, b: string, c: string) => Promise<void> } }).__seb.entrar(u!, n!, `${u}@teste.dev`),
     [uid, apelido],
   );
-  if (novo) await page.getByLabel('Seu apelido no ranking').fill(apelido);
-  else await expect(page.getByText(`Você joga como ${apelido}`)).toBeVisible();
-  await page.getByRole('button', { name: 'Entrar na partida e permitir sensores' }).click();
+  if (novo) {
+    await page.getByLabel('Apelido').fill(apelido);
+    await expect(page.getByText('Disponível')).toBeVisible();
+    await page.getByRole('button', { name: 'Continuar' }).click();
+  }
+  // Instalar a PWA é opcional: no teste, pula.
+  await page.getByRole('button', { name: 'Agora não' }).click();
+  await page.getByRole('button', { name: 'Permitir e continuar' }).click();
+  // Dicas da primeira vez.
+  await page.getByRole('button', { name: 'Pular dicas' }).click();
   await expect(page.getByTestId('temperatura')).toBeVisible();
 }
 
