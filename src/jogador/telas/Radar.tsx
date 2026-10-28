@@ -430,7 +430,7 @@ function BotaoBalancar({
       onKeyUp={(e) => (e.key === ' ' || e.key === 'Enter') && desarmar()}
       onContextMenu={(e) => e.preventDefault()}
       aria-describedby="como-balancar"
-      className={`mb-4 flex h-16 select-none flex-col items-center justify-center rounded-2xl font-display text-[22px] font-bold transition-colors [-webkit-touch-callout:none] ${
+      className={`mb-4 flex h-16 select-none flex-col items-center justify-center rounded-2xl font-display text-[22px] font-bold [-webkit-touch-callout:none] ${
         armado ? 'bg-texto text-verde-tinta shadow-[0_0_0_10px_rgba(67,224,138,0.35)]' : 'bg-verde text-verde-tinta shadow-[0_0_0_6px_rgba(67,224,138,0.18)]'
       }`}
     >

@@ -74,7 +74,10 @@ export async function balancar(page: Page) {
   await page.evaluate(async () => {
     for (let i = 0; i < 6; i++) {
       const x = i % 2 ? 25 : -25;
-      window.dispatchEvent(new DeviceMotionEvent('devicemotion', { accelerationIncludingGravity: { x, y: 0, z: 9.8 }, interval: 16 }));
+      // O WebKit não deixa construir DeviceMotionEvent: um Event comum com o mesmo campo serve.
+      const ev = new Event('devicemotion');
+      Object.defineProperty(ev, 'accelerationIncludingGravity', { value: { x, y: 0, z: 9.8 } });
+      window.dispatchEvent(ev);
       await new Promise((r) => setTimeout(r, 160));
     }
   });
