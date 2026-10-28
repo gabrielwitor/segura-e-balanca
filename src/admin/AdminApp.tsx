@@ -29,6 +29,21 @@ export default function AdminApp() {
   const [admin, setAdmin] = useState<boolean | undefined>(undefined);
   useEffect(() => {
     document.title = 'Segura e Balança · Admin';
+    // Topo do iOS com a cor do cabeçalho do painel (o jogador usa o verde-noite do index.css).
+    const html = document.documentElement;
+    const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    const antes = { fundo: html.style.backgroundColor, tema: meta?.content };
+    html.style.backgroundColor = '#18211C';
+    document.body.style.backgroundColor = '#F7F5EF';
+    if (meta) meta.content = '#18211C';
+    return () => {
+      html.style.backgroundColor = antes.fundo;
+      document.body.style.backgroundColor = '';
+      if (meta && antes.tema) meta.content = antes.tema;
+    };
+  }, []);
+
+  useEffect(() => {
     return observarUsuario((u) => {
       setUsuario(u);
       setAdmin(undefined);

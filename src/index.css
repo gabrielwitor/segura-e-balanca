@@ -133,6 +133,12 @@ body,
 #root {
   height: 100%;
 }
+/* O Safari do iOS pinta a área da barra de status (e o "puxar além do fim") com o fundo do
+   html/body, não com o do app: sem isto aparece branco no topo. O admin troca em AdminApp. */
+html,
+body {
+  background-color: var(--color-noite);
+}
 body {
   margin: 0;
   -webkit-tap-highlight-color: transparent;
