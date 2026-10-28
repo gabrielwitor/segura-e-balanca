@@ -151,3 +151,19 @@ body {
 .leaflet-container {
   font-family: var(--font-sans);
 }
+
+/* react-simple-pull-to-refresh: as telas do jogo são colunas flex que ocupam a altura toda
+   (o botão de balançar fica no rodapé); a lib assume altura 100% e rolagem própria. */
+.ptr {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  height: auto;
+}
+.ptr__children {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  height: auto;
+  overflow: visible;
+}

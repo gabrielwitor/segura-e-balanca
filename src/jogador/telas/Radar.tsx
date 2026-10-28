@@ -54,9 +54,11 @@ interface Props {
   dados: DadosDoJogo;
   sessao: Sessao;
   irParaRanking: () => void;
+  /** Avisa quando está balançando ou mostrando o resultado (o pai desliga o puxar para atualizar). */
+  aoOcupar?: (ocupado: boolean) => void;
 }
 
-export function Radar({ uid, apelido, dados, sessao, irParaRanking }: Props) {
+export function Radar({ uid, apelido, dados, sessao, irParaRanking, aoOcupar }: Props) {
   const partida = dados.partida;
   const ativos = useMemo(() => dados.pontos.filter((p) => p.ativo).sort((a, b) => a.numero - b.numero), [dados.pontos]);
   const jogavel = partida?.estado === 'ativa' && ativos.length > 0;
@@ -111,6 +113,7 @@ export function Radar({ uid, apelido, dados, sessao, irParaRanking }: Props) {
   const [picos, setPicos] = useState(0);
   const picosRef = useRef(0);
   const [fraco, setFraco] = useState(false);
+  useEffect(() => aoOcupar?.(armado || resultado != null), [armado, resultado, aoOcupar]);
 
   if (!partida || partida.estado !== 'ativa' || ativos.length === 0)
     return (

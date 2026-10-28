@@ -109,6 +109,32 @@ export async function entrarNaPartida(uid: string, aoAvancar: (e: EtapaEntrada, 
   return 'ok';
 }
 
+/**
+ * Puxar para atualizar: sincroniza tudo sem recarregar a página (recarregar faria o iPhone
+ * esquecer a liberação de som e sensores). Também procura uma versão nova do app.
+ */
+export async function atualizarAgora(uid: string): Promise<void> {
+  const tarefas: Promise<unknown>[] = [];
+  if ((await monitor.heartbeat()) === 'online') {
+    tarefas.push(
+      sync.aoReconectar(),
+      relogio.ancorar(remoto, uid).catch(() => {}),
+      remoto
+        .baixarPartidaAtual()
+        .then((inst) => inst && guardarInstantaneo(db, inst))
+        .catch(() => {}),
+      atualizarHistorico(uid),
+    );
+  }
+  tarefas.push(
+    navigator.serviceWorker
+      ?.getRegistration()
+      .then((r) => r?.update())
+      .catch(() => {}) ?? Promise.resolve(),
+  );
+  await Promise.all(tarefas);
+}
+
 /** RF-45: guarda o histórico localmente para ver offline. */
 export async function atualizarHistorico(uid: string): Promise<void> {
   const partidas = await remoto.baixarHistorico(uid).catch(() => null);
