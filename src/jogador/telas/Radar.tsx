@@ -139,7 +139,7 @@ export function Radar({ uid, apelido, dados, sessao, irParaRanking }: Props) {
   return (
     <>
       {armado ? (
-        <Balancando picos={picos} fraco={fraco} />
+        <Balancando picos={picos} exigidos={alvo?.ponto.sacudidas ?? 4} fraco={fraco} />
       ) : (
         <>
           <Cabecalho uid={uid} apelido={apelido} dados={dados} />
@@ -185,7 +185,7 @@ export function Radar({ uid, apelido, dados, sessao, irParaRanking }: Props) {
             }
             if (novo) {
               setFraco(false);
-              if (n < 3) feedback.pico(n);
+              if (n < (alvo?.ponto.sacudidas ?? 4)) feedback.pico(n);
             }
             picosRef.current = n;
             setPicos(n);
@@ -381,8 +381,10 @@ function CartaoAlvo({ alvo }: { alvo: Alvo }) {
 }
 
 /** Tela "Balançando": o anel enche a cada sacudida que conta. */
-function Balancando({ picos, fraco }: { picos: number; fraco: boolean }) {
-  const titulos = ['Sacuda!', 'Isso! De novo', 'Mais uma!', 'Balançou!'];
+function Balancando({ picos, exigidos, fraco }: { picos: number; exigidos: number; fraco: boolean }) {
+  const titulo = picos >= exigidos ? 'Balançou!' : picos === 0 ? 'Sacuda!' : picos === exigidos - 1 ? 'Mais uma!' : 'Isso! De novo';
+  const fatia = 360 / exigidos;
+  const folga = Math.min(8, fatia / 6);
   const c = 120, r = 100;
   const ponto = (g: number) => {
     const a = ((g - 90) * Math.PI) / 180;
@@ -397,17 +399,24 @@ function Balancando({ picos, fraco }: { picos: number; fraco: boolean }) {
     <div className="flex grow flex-col items-center justify-center gap-6" role="status" aria-live="assertive" data-testid="balancando">
       <div className="relative size-60">
         <svg viewBox="0 0 240 240" className="size-full" aria-hidden="true">
-          {[0, 1, 2].map((i) => (
-            <path key={i} d={arco(i * 120 + 8, i * 120 + 112)} fill="none" strokeWidth="18" strokeLinecap="round" className={`transition-[stroke] duration-150 ${i < picos ? 'stroke-verde' : 'stroke-[#1F3329]'}`} />
+          {Array.from({ length: exigidos }, (_, i) => (
+            <path
+              key={i}
+              d={arco(i * fatia + folga, (i + 1) * fatia - folga)}
+              fill="none"
+              strokeWidth="18"
+              strokeLinecap="round"
+              className={`transition-[stroke] duration-150 ${i < picos ? 'stroke-verde' : 'stroke-[#1F3329]'}`}
+            />
           ))}
         </svg>
-        <span className={`absolute inset-0 m-auto flex size-24 items-center justify-center rounded-[28px] ${picos >= 3 ? 'bg-verde text-verde-tinta' : 'animate-sacode bg-painel text-verde'}`}>
-          <Icone nome={picos >= 3 ? 'check' : 'balancar'} tamanho={52} strokeWidth={picos >= 3 ? 2.4 : 1.8} />
+        <span className={`absolute inset-0 m-auto flex size-24 items-center justify-center rounded-[28px] ${picos >= exigidos ? 'bg-verde text-verde-tinta' : 'animate-sacode bg-painel text-verde'}`}>
+          <Icone nome={picos >= exigidos ? 'check' : 'balancar'} tamanho={52} strokeWidth={picos >= exigidos ? 2.4 : 1.8} />
         </span>
       </div>
       <div className="flex flex-col items-center gap-2 text-center">
-        <div className="font-display text-[44px] leading-none font-bold">{fraco ? 'Mais força!' : titulos[Math.min(picos, 3)]}</div>
-        <div className="text-[17px] font-semibold text-[#C6D6CD]">{picos < 3 ? `${picos} de 3` : ''}</div>
+        <div className="font-display text-[44px] leading-none font-bold">{fraco ? 'Mais força!' : titulo}</div>
+        <div className="text-[17px] font-semibold text-[#C6D6CD]">{picos < exigidos ? `${picos} de ${exigidos}` : ''}</div>
       </div>
     </div>
   );
@@ -469,7 +478,7 @@ function BotaoBalancar({
     }
   };
 
-  useBalanco(armado && pode, () => void balancar(), aoProgresso);
+  useBalanco(armado && pode, () => void balancar(), aoProgresso, alvo.ponto.sacudidas);
 
   const balancarRef = useRef(balancar);
   useEffect(() => {

@@ -111,6 +111,11 @@ leitura do Spark, vibração no iOS.
 
 ## Decisões tomadas na implementação
 
+- **Sacudidas por ponto** (muda o RF-22, que previa gesto fixo de 3): o admin define em cada ponto quantas
+  sacudidas são exigidas, de 2 a 10, padrão 4. Os primeiros 300 ms depois de segurar o botão não contam, para o
+  tranco do próprio toque não virar sacudida.
+- **Vibração**: só no Android (o iOS não tem Vibration API na web). A API só controla duração, então os padrões
+  usam pulsos de 40–450 ms; abaixo de ~30 ms o motor mal é sentido.
 - **"Segura" no nome**: o gesto exige **segurar o botão enquanto balança** (questão em aberto da seção 12). Soltar dá
   0,8 s de folga. Para trocar, veja `BotaoBalancar` em `src/jogador/telas/Radar.tsx`.
 - **Empate no ranking total**: mesma posição (1, 2, 2, 4).

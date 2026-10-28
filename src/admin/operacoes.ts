@@ -10,7 +10,7 @@ import {
   type UpdateData,
   type DocumentData,
 } from 'firebase/firestore';
-import { RAIO_PADRAO_M, RETENCAO_LOCALIZACAO_MS } from '@/dominio/constantes';
+import { RAIO_PADRAO_M, RETENCAO_LOCALIZACAO_MS, SACUDIDAS_PADRAO } from '@/dominio/constantes';
 import { calcularRanking } from '@/dominio/ranking';
 import { limparApelido, normalizarApelido, validarApelido } from '@/dominio/apelido';
 import type { LinhaRanking, Partida, Ponto } from '@/dominio/tipos';
@@ -41,7 +41,7 @@ export async function garantirJogo(): Promise<void> {
   await b.commit();
 }
 
-export type DadosPonto = Pick<Ponto, 'nome' | 'raioM' | 'valorBase' | 'passoPct' | 'pisoPct' | 'dica'>;
+export type DadosPonto = Pick<Ponto, 'nome' | 'raioM' | 'valorBase' | 'passoPct' | 'pisoPct' | 'dica' | 'sacudidas'>;
 
 /** RF-51: clique no mapa cria o ponto com os padrões e a fila na partida atual. */
 export async function criarPonto(lat: number, lng: number, pontos: Ponto[], partida: Partida | null): Promise<string> {
@@ -58,6 +58,7 @@ export async function criarPonto(lat: number, lng: number, pontos: Ponto[], part
     passoPct: 0.1,
     pisoPct: 0.2,
     dica: '',
+    sacudidas: SACUDIDAS_PADRAO,
     ativo: true,
     desativadoEm: null,
   });

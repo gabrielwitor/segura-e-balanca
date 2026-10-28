@@ -1,4 +1,5 @@
 import { Timestamp, type DocumentData, type DocumentSnapshot, type QueryDocumentSnapshot } from 'firebase/firestore';
+import { SACUDIDAS_MAX, SACUDIDAS_MIN, SACUDIDAS_PADRAO } from '@/dominio/constantes';
 import type { Entrada, Fila, Partida, Ponto } from '@/dominio/tipos';
 
 type Snap = QueryDocumentSnapshot<DocumentData> | DocumentSnapshot<DocumentData>;
@@ -22,6 +23,8 @@ export function paraPonto(s: Snap): Ponto {
     passoPct: d.passoPct,
     pisoPct: d.pisoPct,
     dica: d.dica ?? '',
+    // Pontos criados antes do campo existir valem o padrão.
+    sacudidas: Number.isInteger(d.sacudidas) ? Math.min(SACUDIDAS_MAX, Math.max(SACUDIDAS_MIN, d.sacudidas)) : SACUDIDAS_PADRAO,
     ativo: d.ativo !== false,
     desativadoEm: ms(d.desativadoEm),
   };
