@@ -168,8 +168,21 @@ const DO5 = 1046.5, MI5 = 1318.5, SOL5 = 1568, DO6 = 2093, MI6 = 2637, SOL6 = 31
 /** Pentatônica de Dó para as sacudidas (duas oitavas). */
 const ESCALA = [DO5, 1174.7, MI5, SOL5, 1760, DO6, 2349.3, MI6, SOL6, 3520];
 
+/**
+ * Só toca com o áudio liberado. Com o contexto ainda suspenso (nenhum toque válido na página),
+ * as notas ficariam enfileiradas e tocariam todas juntas quando ele fosse liberado.
+ */
 function tocar(f: () => void): void {
-  if (prefs.som) f();
+  if (prefs.som && audio?.state === 'running') f();
+}
+
+/**
+ * O navegador só libera som e vibração depois de um toque válido na página (click/touchend;
+ * segurar o botão e sacudir não contam). Sem isso, o feedback da sacudida não sai na hora.
+ */
+export function precisaDeToqueParaFeedback(): boolean {
+  const ativacao = (navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation;
+  return !!ativacao && !ativacao.hasBeenActive;
 }
 
 // ---------- Vibração

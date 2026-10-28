@@ -77,6 +77,11 @@ export async function entrarNoJogo(page: Page, uid: string, apelido: string, { n
 export async function balancar(page: Page) {
   const botao = page.getByTestId('balancar');
   await expect(botao).toBeEnabled();
+  // Sem toque válido na página ainda (ex.: logo depois de recarregar), o 1º toque ativa som e sensores.
+  if ((await botao.textContent())?.includes('Toque para ativar')) {
+    await botao.click();
+    await expect(botao).toContainText('Segura e balança');
+  }
   await botao.dispatchEvent('pointerdown');
   await page.evaluate(async () => {
     // Espera a carência do toque (300 ms) e manda sacudidas de sobra para o padrão de 4.

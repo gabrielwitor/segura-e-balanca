@@ -8,7 +8,7 @@ import { Icone } from '@/ui/Icone';
 import { pontoConquistado, useAgora, useConexao, type DadosDoJogo, type Sessao } from '../dados';
 import { db, relogio, sync } from '../servicos';
 import { pedirLocalizacao, pedirPermissaoDeMovimento, permissaoDeMovimento, useBalanco, useBussola, usePosicao, type Leitura } from '../sensores';
-import { destravarSom, feedback } from '../feedback';
+import { destravarSom, feedback, precisaDeToqueParaFeedback } from '../feedback';
 import { Cabecalho } from './Cabecalho';
 import { EstadoVazio } from './EstadoVazio';
 import { Balancou } from './Balancou';
@@ -494,6 +494,8 @@ function BotaoBalancar({
   aoRegistrar: (chave: string) => void;
 }) {
   const conexao = useConexao();
+  // Re-renderiza depois do toque de ativação (o estado de ativação do navegador não é reativo).
+  const [, setAtivado] = useState(0);
   const soltar = useRef<ReturnType<typeof setTimeout> | null>(null);
   const registrando = useRef(false);
   const pode = al === 'dentro' && !alvo.conquistado;
@@ -549,15 +551,19 @@ function BotaoBalancar({
     soltar.current = setTimeout(() => setArmado(false), 800);
   };
 
-  if (pode && !permissaoDeMovimento.liberada())
+  // Um toque (click) antes de segurar: libera som, vibração e, no iPhone, os sensores.
+  if (pode && (!permissaoDeMovimento.liberada() || precisaDeToqueParaFeedback()))
     return (
       <button
         type="button"
         data-testid="balancar"
-        onClick={() => void pedirPermissaoDeMovimento()}
+        onClick={() => {
+          destravarSom();
+          void pedirPermissaoDeMovimento().finally(() => setAtivado((n) => n + 1));
+        }}
         className="mb-4 flex h-[72px] shrink-0 flex-col items-center justify-center rounded-[18px] bg-alerta font-display text-xl font-bold text-[#2a1e05]"
       >
-        Toque para ativar os sensores
+        Toque para ativar som e sensores
       </button>
     );
 
