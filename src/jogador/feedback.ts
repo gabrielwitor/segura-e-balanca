@@ -1,18 +1,22 @@
 /**
  * RF-23: feedback de som e vibração. Os sons são sintetizados aqui (Web Audio), sem arquivos:
  * não pesam no cache offline. Vibração é aditiva; o visual sempre basta sozinho.
+ * O iOS não vibra pela web (sem Vibration API): lá o feedback é só som e visual.
  */
 
 // ---------- Preferências (por aparelho)
 
 const CHAVE = 'seb:feedback';
-type Prefs = { som: boolean; vibracao: boolean };
+/** noSilencioso: no iPhone, toca mesmo com a chave de silencioso (mas pausa a música de outros apps). */
+type Prefs = { som: boolean; vibracao: boolean; noSilencioso: boolean };
+// O som é o feedback principal (o iPhone não vibra): por padrão toca mesmo no modo silencioso.
+const PADRAO: Prefs = { som: true, vibracao: true, noSilencioso: true };
 
 function lerPrefs(): Prefs {
   try {
-    return { som: true, vibracao: true, ...JSON.parse(localStorage.getItem(CHAVE) ?? '{}') };
+    return { ...PADRAO, ...JSON.parse(localStorage.getItem(CHAVE) ?? '{}') };
   } catch {
-    return { som: true, vibracao: true };
+    return { ...PADRAO };
   }
 }
 
@@ -23,6 +27,7 @@ export const preferencias = {
   atual: () => prefs,
   definir(p: Partial<Prefs>) {
     prefs = { ...prefs, ...p };
+    aplicarSessaoDeAudio();
     try {
       localStorage.setItem(CHAVE, JSON.stringify(prefs));
     } catch {
@@ -39,12 +44,36 @@ export const preferencias = {
 // ---------- Áudio
 
 let audio: AudioContext | null = null;
+let saidaGeral: AudioNode | null = null;
 
-/** Precisa rodar dentro de um gesto (iOS). Respeita o modo silencioso do iPhone (Safari 16.4+). */
+/** Compressor na saída: permite volume alto no alto-falante do celular sem distorcer. */
+function saida(ctx: AudioContext): AudioNode {
+  if (!saidaGeral) {
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -12;
+    comp.knee.value = 6;
+    comp.ratio.value = 8;
+    comp.attack.value = 0.002;
+    comp.release.value = 0.12;
+    comp.connect(ctx.destination);
+    saidaGeral = comp;
+  }
+  return saidaGeral;
+}
+
+/**
+ * Safari 16.4+: "ambient" respeita a chave de silencioso e mistura com a música de outros apps;
+ * "playback" toca mesmo no silencioso, mas pausa a música (ajuste "Tocar no modo silencioso").
+ */
+function aplicarSessaoDeAudio(): void {
+  const sessao = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
+  if (sessao) sessao.type = prefs.noSilencioso ? 'playback' : 'ambient';
+}
+
+/** Precisa rodar dentro de um gesto (iOS). */
 export function destravarSom(): void {
   try {
-    const sessao = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
-    if (sessao) sessao.type = 'ambient';
+    aplicarSessaoDeAudio();
     audio ??= new AudioContext();
     if (audio.state !== 'running') {
       void audio.resume();
@@ -74,36 +103,38 @@ export function destravarNoPrimeiroToque(): void {
 
 export interface Diagnostico {
   som: 'ativo' | 'aguardando-toque' | 'sem-suporte';
-  vibracao: 'suportada' | 'iphone-so-no-toque' | 'sem-suporte';
 }
+
+export const vibracaoSuportada = () => typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
 
 export function diagnostico(): Diagnostico {
   const som = typeof AudioContext === 'undefined' ? 'sem-suporte' : audio?.state === 'running' ? 'ativo' : 'aguardando-toque';
-  const vibracao =
-    typeof navigator.vibrate === 'function' ? 'suportada' : /iPhone|iPad|iPod/.test(navigator.userAgent) ? 'iphone-so-no-toque' : 'sem-suporte';
-  return { som, vibracao };
+  return { som };
 }
 
-/** Nota com timbre de marimba: ataque curto, decaimento rápido, um harmônico suave. */
-function nota(freq: number, quando: number, dur = 0.35, volume = 0.22): void {
+/**
+ * Nota curta e brilhante, feita para alto-falante de celular (que reproduz mal abaixo de ~800 Hz):
+ * triângulo + harmônicos, ataque rápido, decaimento de sino.
+ */
+function nota(freq: number, quando: number, dur = 0.35, volume = 0.7): void {
   if (!audio) return;
   const t = audio.currentTime + quando;
-  const saida = audio.createGain();
-  saida.gain.setValueAtTime(0.0001, t);
-  saida.gain.exponentialRampToValueAtTime(volume, t + 0.008);
-  saida.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  saida.connect(audio.destination);
+  const env = audio.createGain();
+  env.gain.setValueAtTime(0.0001, t);
+  env.gain.exponentialRampToValueAtTime(volume, t + 0.006);
+  env.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  env.connect(saida(audio));
   for (const [mult, ganho, tipo] of [
-    [1, 1, 'sine'],
-    [4, 0.12, 'sine'],
-    [2, 0.08, 'triangle'],
+    [1, 1, 'triangle'],
+    [2, 0.35, 'sine'],
+    [3, 0.15, 'sine'],
   ] as const) {
     const osc = audio.createOscillator();
     const g = audio.createGain();
     osc.type = tipo;
     osc.frequency.value = freq * mult;
     g.gain.value = ganho;
-    osc.connect(g).connect(saida);
+    osc.connect(g).connect(env);
     osc.start(t);
     osc.stop(t + dur + 0.02);
   }
@@ -126,13 +157,14 @@ function whoosh(): void {
   filtro.frequency.exponentialRampToValueAtTime(3200, t + dur);
   const g = audio.createGain();
   g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(0.08, t + 0.12);
+  g.gain.exponentialRampToValueAtTime(0.35, t + 0.12);
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  fonte.connect(filtro).connect(g).connect(audio.destination);
+  fonte.connect(filtro).connect(g).connect(saida(audio));
   fonte.start(t);
 }
 
-const DO5 = 523.25, MI5 = 659.25, SOL5 = 783.99, DO6 = 1046.5, MI6 = 1318.5, SOL6 = 1568;
+// Uma oitava acima do usual: 1–2 kHz é onde alto-falante de celular rende.
+const DO5 = 1046.5, MI5 = 1318.5, SOL5 = 1568, DO6 = 2093, MI6 = 2637, SOL6 = 3136;
 
 function tocar(f: () => void): void {
   if (prefs.som) f();
@@ -140,35 +172,9 @@ function tocar(f: () => void): void {
 
 // ---------- Vibração
 
-let ultimoToqueIos = 0;
-
+/** Android (Vibration API). No iPhone não existe: não faz nada. */
 function vibrar(padrao: number | number[]): void {
-  if (!prefs.vibracao) return;
-  if (typeof navigator.vibrate === 'function') {
-    navigator.vibrate(padrao);
-    return;
-  }
-  // iOS 18+: alternar um <input switch> dá um toque háptico (não documentado; seção 9.2).
-  // Só funciona dentro de um toque na tela; fora disso (acelerômetro, radar) o iOS ignora.
-  const ativacao = (navigator as Navigator & { userActivation?: { isActive: boolean } }).userActivation;
-  if (ativacao && !ativacao.isActive) return;
-  const agora = performance.now();
-  if (agora - ultimoToqueIos < 80) return;
-  ultimoToqueIos = agora;
-  try {
-    const label = document.createElement('label');
-    label.ariaHidden = 'true';
-    label.style.display = 'none';
-    const input = document.createElement('input');
-    input.type = 'checkbox';
-    input.setAttribute('switch', '');
-    label.appendChild(input);
-    document.body.appendChild(label);
-    label.click();
-    label.remove();
-  } catch {
-    /* o visual basta */
-  }
+  if (prefs.vibracao && typeof navigator.vibrate === 'function') navigator.vibrate(padrao);
 }
 
 // ---------- Momentos do jogo
@@ -176,20 +182,20 @@ function vibrar(padrao: number | number[]): void {
 export const feedback = {
   /** Bipe do radar no quente (tipo detector de metal). */
   tickRadar() {
-    tocar(() => nota(SOL6, 0, 0.08, 0.07));
+    tocar(() => nota(SOL5, 0, 0.07, 0.35));
     vibrar(12);
   },
   esquentou() {
     tocar(() => {
-      nota(DO5, 0, 0.25, 0.15);
-      nota(MI5, 0.1, 0.3, 0.15);
+      nota(DO5, 0, 0.25, 0.55);
+      nota(MI5, 0.1, 0.3, 0.55);
     });
     vibrar(20);
   },
   esfriou() {
     tocar(() => {
-      nota(MI5, 0, 0.25, 0.12);
-      nota(DO5, 0.1, 0.3, 0.12);
+      nota(MI5, 0, 0.25, 0.55);
+      nota(DO5, 0.1, 0.3, 0.55);
     });
     vibrar(20);
   },
@@ -213,19 +219,19 @@ export const feedback = {
   primeiroLugar() {
     tocar(() => {
       [SOL5, DO6, MI6].forEach((f, i) => nota(f, i * 0.1, 0.35));
-      [DO6, MI6, SOL6].forEach((f) => nota(f, 0.34, 0.9, 0.16));
+      [DO6, MI6, SOL6].forEach((f) => nota(f, 0.34, 0.9, 0.5));
     });
     vibrar([60, 40, 60, 40, 220]);
   },
   guardado() {
     tocar(() => {
-      nota(SOL5, 0, 0.3, 0.14);
-      nota(MI5, 0.12, 0.4, 0.14);
+      nota(SOL5, 0, 0.3, 0.55);
+      nota(MI5, 0.12, 0.4, 0.55);
     });
     vibrar(60);
   },
   naoContou() {
-    tocar(() => nota(196, 0, 0.45, 0.16));
+    tocar(() => nota(392, 0, 0.45, 0.5));
   },
   sincronizou() {
     tocar(whoosh);
@@ -233,7 +239,7 @@ export const feedback = {
   balancoFraco() {
     vibrar([30, 40, 30]);
   },
-  /** Toque ao começar a segurar o botão: no iPhone é a vibração que o iOS deixa dar. */
+  /** Ao começar a segurar o botão (Android). */
   armou() {
     vibrar(25);
   },
