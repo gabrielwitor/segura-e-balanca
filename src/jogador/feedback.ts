@@ -165,6 +165,8 @@ function whoosh(): void {
 
 // Uma oitava acima do usual: 1–2 kHz é onde alto-falante de celular rende.
 const DO5 = 1046.5, MI5 = 1318.5, SOL5 = 1568, DO6 = 2093, MI6 = 2637, SOL6 = 3136;
+/** Pentatônica de Dó para as sacudidas: sobe uma nota por sacudida, até 10. */
+const ESCALA = [DO5, 1174.7, MI5, SOL5, 1760, DO6, 2349.3, MI6, SOL6, 3520];
 
 function tocar(f: () => void): void {
   if (prefs.som) f();
@@ -183,21 +185,21 @@ export const feedback = {
   /** Bipe do radar no quente (tipo detector de metal). */
   tickRadar() {
     tocar(() => nota(SOL5, 0, 0.07, 0.35));
-    vibrar(12);
+    vibrar(40);
   },
   esquentou() {
     tocar(() => {
       nota(DO5, 0, 0.25, 0.55);
       nota(MI5, 0.1, 0.3, 0.55);
     });
-    vibrar(20);
+    vibrar([70, 50, 70]);
   },
   esfriou() {
     tocar(() => {
       nota(MI5, 0, 0.25, 0.55);
       nota(DO5, 0.1, 0.3, 0.55);
     });
-    vibrar(20);
+    vibrar(90);
   },
   entrouNaArea() {
     tocar(() => {
@@ -205,30 +207,30 @@ export const feedback = {
       nota(MI5, 0.06, 0.5);
       nota(SOL5, 0.12, 0.6);
     });
-    vibrar([40, 60, 40]);
+    vibrar([150, 80, 150]);
   },
-  /** Cada sacudida que conta: uma nota subindo (1, 2, 3). */
+  /** Cada sacudida que conta: a nota sobe uma escala (pentatônica) a cada uma. */
   pico(n: number) {
-    tocar(() => nota([DO5, MI5, SOL5][Math.min(n, 3) - 1] ?? DO5, 0, 0.22));
-    vibrar(30);
+    tocar(() => nota(ESCALA[Math.min(n, ESCALA.length) - 1] ?? DO5, 0, 0.22));
+    vibrar(80);
   },
   balancou() {
     tocar(() => [DO5, MI5, SOL5, DO6].forEach((f, i) => nota(f, i * 0.08, 0.4)));
-    vibrar([80, 60, 160]);
+    vibrar([200, 100, 300]);
   },
   primeiroLugar() {
     tocar(() => {
       [SOL5, DO6, MI6].forEach((f, i) => nota(f, i * 0.1, 0.35));
       [DO6, MI6, SOL6].forEach((f) => nota(f, 0.34, 0.9, 0.5));
     });
-    vibrar([60, 40, 60, 40, 220]);
+    vibrar([150, 80, 150, 80, 450]);
   },
   guardado() {
     tocar(() => {
       nota(SOL5, 0, 0.3, 0.55);
       nota(MI5, 0.12, 0.4, 0.55);
     });
-    vibrar(60);
+    vibrar(150);
   },
   naoContou() {
     tocar(() => nota(392, 0, 0.45, 0.5));
@@ -237,16 +239,16 @@ export const feedback = {
     tocar(whoosh);
   },
   balancoFraco() {
-    vibrar([30, 40, 30]);
+    vibrar([100, 60, 100]);
   },
   /** Ao começar a segurar o botão (Android). */
   armou() {
-    vibrar(25);
+    vibrar(60);
   },
   /** Botão "Testar" dos ajustes: som e vibração dentro do mesmo toque. */
   testar() {
     destravarSom();
     tocar(() => [DO5, MI5, SOL5, DO6].forEach((f, i) => nota(f, i * 0.08, 0.4)));
-    vibrar([80, 60, 160]);
+    vibrar([200, 100, 300]);
   },
 };

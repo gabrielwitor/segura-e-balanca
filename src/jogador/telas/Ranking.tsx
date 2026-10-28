@@ -1,8 +1,9 @@
+import { useEffect, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Icone } from '@/ui/Icone';
 import { haQuanto } from '@/ui/tempo';
 import { useAgora, useConexao, type DadosDoJogo, type MinhaBalancada, type Sessao } from '../dados';
-import { db } from '../servicos';
+import { db, sairDaConta } from '../servicos';
 import { estaInstalado } from '../instalacao';
 import { nomeDaPista } from './Radar';
 import { AjustesFeedback } from './AjustesFeedback';
@@ -119,11 +120,12 @@ export function Ranking({
           </span>
         </button>
         {!estaInstalado() && (
-          <button type="button" onClick={abrirInstalar} className="flex min-h-12 items-center justify-between px-4 text-left text-[15px]">
+          <button type="button" onClick={abrirInstalar} className="flex min-h-12 items-center justify-between border-b border-borda px-4 text-left text-[15px]">
             Instalar o app
             <Icone nome="avancar" tamanho={16} className="text-suave" />
           </button>
         )}
+        <SairDaConta email={sessao.jogador?.email ?? null} pendentes={dados.pendentes} />
       </nav>
       <div className="mb-4">
         <AjustesFeedback />
@@ -170,5 +172,91 @@ function MinhasBalancadas({ minhas, dados }: { minhas: MinhaBalancada[]; dados: 
         })}
       </ul>
     </section>
+  );
+}
+
+/** Sair da conta, com confirmação; bloqueado enquanto houver balançadas pendentes. */
+function SairDaConta({ email, pendentes }: { email: string | null; pendentes: number }) {
+  const [aberto, setAberto] = useState(false);
+  const [saindo, setSaindo] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const cancelar = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!aberto) return;
+    cancelar.current?.focus();
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setAberto(false);
+    document.addEventListener('keydown', esc);
+    return () => document.removeEventListener('keydown', esc);
+  }, [aberto]);
+
+  const confirmar = async () => {
+    setSaindo(true);
+    setErro(null);
+    try {
+      await sairDaConta();
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Não deu para sair.');
+      setSaindo(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          setErro(null);
+          setAberto(true);
+        }}
+        className="flex min-h-12 items-center gap-3 px-4 text-left text-[15px]"
+      >
+        <Icone nome="sair" tamanho={20} className="text-suave" />
+        <span className="flex min-w-0 grow flex-col">
+          Sair da conta
+          {email && <span className="truncate text-[13px] text-suave">{email}</span>}
+        </span>
+      </button>
+      {aberto && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center">
+          <button type="button" tabIndex={-1} aria-label="Fechar" onClick={() => setAberto(false)} className="absolute inset-0 bg-[rgba(5,10,8,0.7)]" />
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="sair-t"
+            className="relative flex w-full max-w-[440px] flex-col gap-4 rounded-t-3xl border-t border-borda bg-painel px-5 pt-5 pb-[max(24px,env(safe-area-inset-bottom))]"
+          >
+            <h2 id="sair-t" className="m-0 font-display text-2xl font-bold">
+              Sair da conta?
+            </h2>
+            {pendentes > 0 ? (
+              <p role="alert" className="m-0 rounded-2xl border border-alerta-borda bg-alerta-fundo px-4 py-3 text-[15px] text-[#FFE6B0]">
+                Sincronize antes de sair: {pendentes} {pendentes === 1 ? 'balançada não enviada' : 'balançadas não enviadas'}.
+              </p>
+            ) : (
+              <p className="m-0 text-[15px] text-[#C6D6CD]">Seus pontos continuam salvos. Entre de novo quando quiser.</p>
+            )}
+            {erro && (
+              <p role="alert" className="m-0 text-sm text-erro-texto">
+                {erro}
+              </p>
+            )}
+            <div className="grid grid-cols-2 gap-2.5">
+              <button ref={cancelar} type="button" onClick={() => setAberto(false)} className="h-[52px] rounded-2xl border border-borda font-semibold">
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={pendentes > 0 || saindo}
+                onClick={() => void confirmar()}
+                className="h-[52px] rounded-2xl bg-texto font-bold text-noite disabled:opacity-40"
+              >
+                {saindo ? 'Saindo…' : 'Sair'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

@@ -19,9 +19,14 @@ export const RAIO_PADRAO_M = 25;
 
 /** RF-22 / seção 7.4: gesto do balanço (referência: shake.js). */
 export const BALANCO_LIMIAR_MS2 = 15;
-export const BALANCO_PICOS = 3;
-export const BALANCO_JANELA_MS = 2000;
+/** Sacudidas exigidas por ponto: o admin configura em cada ponto (antes era fixo em 3). */
+export const SACUDIDAS_PADRAO = 4;
+export const SACUDIDAS_MIN = 2;
+export const SACUDIDAS_MAX = 10;
+export const BALANCO_JANELA_MS = 2500;
 export const BALANCO_INTERVALO_MIN_MS = 120;
+/** Ignora o tranco do próprio toque no botão: nada conta nos primeiros ms depois de armar. */
+export const BALANCO_CARENCIA_MS = 300;
 
 /** RNF-07: retentativa com espera exponencial. */
 export const BACKOFF_BASE_MS = 2000;
