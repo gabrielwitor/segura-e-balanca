@@ -210,7 +210,7 @@ export function Radar({ uid, apelido, dados, sessao, irParaRanking }: Props) {
             }
             if (novo) {
               setFraco(false);
-              if (n < (alvo?.ponto.sacudidas ?? 4)) feedback.pico(n);
+              if (n < (alvo?.ponto.sacudidas ?? 4)) feedback.pico(n, alvo?.ponto.sacudidas ?? 4);
             }
             picosRef.current = n;
             setPicos(n);
@@ -405,6 +405,9 @@ function CartaoAlvo({ alvo }: { alvo: Alvo }) {
   );
 }
 
+/** Até este número de sacudidas o anel é dividido em fatias; acima, vira um anel contínuo. */
+const FATIAS_MAX = 12;
+
 /** Tela "Balançando": o anel enche a cada sacudida que conta. */
 function Balancando({ picos, exigidos, fraco }: { picos: number; exigidos: number; fraco: boolean }) {
   const titulo = picos >= exigidos ? 'Balançou!' : picos === 0 ? 'Sacuda!' : picos === exigidos - 1 ? 'Mais uma!' : 'Isso! De novo';
@@ -424,16 +427,34 @@ function Balancando({ picos, exigidos, fraco }: { picos: number; exigidos: numbe
     <div className="flex grow flex-col items-center justify-center gap-6" role="status" aria-live="assertive" data-testid="balancando">
       <div className="relative size-60">
         <svg viewBox="0 0 240 240" className="size-full" aria-hidden="true">
-          {Array.from({ length: exigidos }, (_, i) => (
-            <path
-              key={i}
-              d={arco(i * fatia + folga, (i + 1) * fatia - folga)}
-              fill="none"
-              strokeWidth="18"
-              strokeLinecap="round"
-              className={`transition-[stroke] duration-150 ${i < picos ? 'stroke-verde' : 'stroke-[#1F3329]'}`}
-            />
-          ))}
+          {exigidos <= FATIAS_MAX ? (
+            Array.from({ length: exigidos }, (_, i) => (
+              <path
+                key={i}
+                d={arco(i * fatia + folga, (i + 1) * fatia - folga)}
+                fill="none"
+                strokeWidth="18"
+                strokeLinecap="round"
+                className={`transition-[stroke] duration-150 ${i < picos ? 'stroke-verde' : 'stroke-[#1F3329]'}`}
+              />
+            ))
+          ) : (
+            // Muitas sacudidas: um anel contínuo que enche pela proporção.
+            <>
+              <circle cx={c} cy={c} r={r} fill="none" strokeWidth="18" className="stroke-[#1F3329]" />
+              <circle
+                cx={c}
+                cy={c}
+                r={r}
+                fill="none"
+                strokeWidth="18"
+                strokeLinecap="round"
+                strokeDasharray={`${(2 * Math.PI * r * Math.min(picos, exigidos)) / exigidos} ${2 * Math.PI * r}`}
+                transform={`rotate(-90 ${c} ${c})`}
+                className="stroke-verde transition-[stroke-dasharray] duration-150"
+              />
+            </>
+          )}
         </svg>
         <span className={`absolute inset-0 m-auto flex size-24 items-center justify-center rounded-[28px] ${picos >= exigidos ? 'bg-verde text-verde-tinta' : 'animate-sacode bg-painel text-verde'}`}>
           <Icone nome={picos >= exigidos ? 'check' : 'balancar'} tamanho={52} strokeWidth={picos >= exigidos ? 2.4 : 1.8} />

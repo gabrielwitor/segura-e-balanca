@@ -22,8 +22,9 @@ export const BALANCO_LIMIAR_MS2 = 15;
 /** Sacudidas exigidas por ponto: o admin configura em cada ponto (antes era fixo em 3). */
 export const SACUDIDAS_PADRAO = 4;
 export const SACUDIDAS_MIN = 2;
-export const SACUDIDAS_MAX = 10;
-export const BALANCO_JANELA_MS = 2500;
+export const SACUDIDAS_MAX = 100;
+/** O progresso só zera se a pessoa parar de sacudir por mais que isto (com até 100 sacudidas, não há janela total). */
+export const BALANCO_PAUSA_MAX_MS = 1500;
 export const BALANCO_INTERVALO_MIN_MS = 120;
 /** Ignora o tranco do próprio toque no botão: nada conta nos primeiros ms depois de armar. */
 export const BALANCO_CARENCIA_MS = 300;
@@ -46,6 +47,10 @@ export const DIVERGENCIA_ANCORA_MS = 2000;
 
 /** RF-06 / RF-58: retenção da localização. */
 export const RETENCAO_LOCALIZACAO_MS = 30 * 24 * 60 * 60_000;
+
+/** RF-02: tamanho do apelido. */
+export const APELIDO_MIN = 2;
+export const APELIDO_MAX = 30;
 
 /** RF-13: fração do valor-base que define o nível do blip. */
 export const NIVEL_ALTO = 0.7;

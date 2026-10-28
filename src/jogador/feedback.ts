@@ -165,7 +165,7 @@ function whoosh(): void {
 
 // Uma oitava acima do usual: 1–2 kHz é onde alto-falante de celular rende.
 const DO5 = 1046.5, MI5 = 1318.5, SOL5 = 1568, DO6 = 2093, MI6 = 2637, SOL6 = 3136;
-/** Pentatônica de Dó para as sacudidas: sobe uma nota por sacudida, até 10. */
+/** Pentatônica de Dó para as sacudidas (duas oitavas). */
 const ESCALA = [DO5, 1174.7, MI5, SOL5, 1760, DO6, 2349.3, MI6, SOL6, 3520];
 
 function tocar(f: () => void): void {
@@ -209,9 +209,10 @@ export const feedback = {
     });
     vibrar([150, 80, 150]);
   },
-  /** Cada sacudida que conta: a nota sobe uma escala (pentatônica) a cada uma. */
-  pico(n: number) {
-    tocar(() => nota(ESCALA[Math.min(n, ESCALA.length) - 1] ?? DO5, 0, 0.22));
+  /** Cada sacudida que conta: a nota sobe a escala pela proporção do progresso (n de total). */
+  pico(n: number, total: number) {
+    const i = Math.min(ESCALA.length - 1, Math.floor(((n - 1) / Math.max(1, total - 1)) * (ESCALA.length - 1)));
+    tocar(() => nota(ESCALA[i] ?? DO5, 0, 0.22));
     vibrar(80);
   },
   balancou() {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { calcularRanking } from '@/dominio/ranking';
-import { RETENCAO_LOCALIZACAO_MS } from '@/dominio/constantes';
+import { APELIDO_MAX, RETENCAO_LOCALIZACAO_MS } from '@/dominio/constantes';
 import type { Partida, Ponto } from '@/dominio/tipos';
 import { ehAdmin, entrarComGoogle, observarUsuario, sair, type User } from '@/firebase/conta';
 import { Icone } from '@/ui/Icone';
@@ -537,7 +537,7 @@ function Jogadores({ dados, ranking }: { dados: DadosAdmin; ranking: ReturnType<
             <label htmlFor={`ren-${j.uid}`} className="sr-only">
               Novo apelido de {j.apelido}
             </label>
-            <input id={`ren-${j.uid}`} value={texto} onChange={(e) => setTexto(e.target.value)} maxLength={20} className="h-11 min-w-0 grow rounded-lg border border-[#C9C3B5] px-2.5" />
+            <input id={`ren-${j.uid}`} value={texto} onChange={(e) => setTexto(e.target.value)} maxLength={APELIDO_MAX} className="h-11 min-w-0 grow rounded-lg border border-[#C9C3B5] px-2.5" />
             <Botao variante="primario" type="submit">
               Salvar
             </Botao>

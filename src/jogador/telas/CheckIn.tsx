@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { sugerirApelido, validarApelido } from '@/dominio/apelido';
+import { APELIDO_MAX } from '@/dominio/constantes';
 import { ApelidoEmUso, apelidoLivre, entrarComGoogle, reservarApelido, type User } from '@/firebase/conta';
 import { Icone, type NomeIcone } from '@/ui/Icone';
 import { db } from '../servicos';
@@ -153,7 +154,7 @@ function Apelido({ usuario, aoContinuar }: { usuario: User; aoContinuar: () => v
             id="apelido"
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
-            maxLength={20}
+            maxLength={APELIDO_MAX}
             autoComplete="nickname"
             aria-describedby="apelido-status"
             aria-invalid={ruim}

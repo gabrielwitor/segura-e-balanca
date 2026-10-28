@@ -14,7 +14,7 @@ export const PontoSchema = z.object({
   pisoPct: z.number().min(0).max(1),
   dica: z.string().default(''),
   /** Sacudidas exigidas para balançar neste ponto (configurável pelo admin; padrão 4). */
-  sacudidas: z.number().int().min(2).max(10),
+  sacudidas: z.number().int().min(2).max(100),
   ativo: z.boolean(),
   desativadoEm: z.number().nullable(),
 });
