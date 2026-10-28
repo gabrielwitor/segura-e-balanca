@@ -53,7 +53,7 @@ export async function irPara(ctx: BrowserContext, pos: { lat: number; lng: numbe
 }
 
 /** Login no Auth Emulator, apelido e entrada na partida (telas 1 e 6). */
-export async function entrarNoJogo(page: Page, uid: string, apelido: string, { novo = true } = {}) {
+export async function entrarNoJogo(page: Page, uid: string, apelido: string, { novo = true, dicas = 'pular' }: { novo?: boolean; dicas?: 'pular' | 'manter' } = {}) {
   await page.goto('/');
   await page.getByRole('button', { name: 'Entrar com Google' }).waitFor();
   await page.evaluate(
@@ -68,9 +68,25 @@ export async function entrarNoJogo(page: Page, uid: string, apelido: string, { n
   // Instalar a PWA é opcional: no teste, pula.
   await page.getByRole('button', { name: 'Agora não' }).click();
   await page.getByRole('button', { name: 'Permitir e continuar' }).click();
-  // Dicas da primeira vez.
-  await page.getByRole('button', { name: 'Pular dicas' }).click();
+  // Dicas e treino da primeira vez.
+  if (dicas === 'manter') return;
+  await page.getByRole('button', { name: 'Pular', exact: true }).click();
   await expect(page.getByTestId('temperatura')).toBeVisible();
+}
+
+/** Picos de aceleração sintéticos, depois da carência do toque (300 ms). */
+export async function sacudir(page: Page, vezes = 8) {
+  await page.evaluate(async (n) => {
+    await new Promise((r) => setTimeout(r, 350));
+    for (let i = 0; i < n; i++) {
+      const x = i % 2 ? 25 : -25;
+      // O WebKit não deixa construir DeviceMotionEvent: um Event comum com o mesmo campo serve.
+      const ev = new Event('devicemotion');
+      Object.defineProperty(ev, 'accelerationIncludingGravity', { value: { x, y: 0, z: 9.8 } });
+      window.dispatchEvent(ev);
+      await new Promise((r) => setTimeout(r, 160));
+    }
+  }, vezes);
 }
 
 /** RF-22: segura o botão e manda picos de aceleração sintéticos (DeviceMotionEvent). */
@@ -83,18 +99,8 @@ export async function balancar(page: Page) {
     await expect(botao).toContainText('Segura e balança');
   }
   await botao.dispatchEvent('pointerdown');
-  await page.evaluate(async () => {
-    // Espera a carência do toque (300 ms) e manda sacudidas de sobra para o padrão de 4.
-    await new Promise((r) => setTimeout(r, 350));
-    for (let i = 0; i < 8; i++) {
-      const x = i % 2 ? 25 : -25;
-      // O WebKit não deixa construir DeviceMotionEvent: um Event comum com o mesmo campo serve.
-      const ev = new Event('devicemotion');
-      Object.defineProperty(ev, 'accelerationIncludingGravity', { value: { x, y: 0, z: 9.8 } });
-      window.dispatchEvent(ev);
-      await new Promise((r) => setTimeout(r, 160));
-    }
-  });
+  // Sacudidas de sobra para o padrão de 4.
+  await sacudir(page);
   await expect(page.getByTestId('balancou')).toBeVisible();
 }
 

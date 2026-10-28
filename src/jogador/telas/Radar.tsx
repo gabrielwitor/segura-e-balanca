@@ -411,9 +411,26 @@ function CartaoAlvo({ alvo }: { alvo: Alvo }) {
 /** Até este número de sacudidas o anel é dividido em fatias; acima, vira um anel contínuo. */
 const FATIAS_MAX = 12;
 
-/** Tela "Balançando": o anel enche a cada sacudida que conta. */
-function Balancando({ picos, exigidos, fraco }: { picos: number; exigidos: number; fraco: boolean }) {
-  const titulo = picos >= exigidos ? 'Balançou!' : picos === 0 ? 'Sacuda!' : picos === exigidos - 1 ? 'Mais uma!' : 'Isso! De novo';
+/**
+ * Tela "Balançando": o anel enche a cada sacudida que conta. O treino do onboarding reaproveita,
+ * trocando título e legenda enquanto não está segurando (`alerta` pinta o ícone de amarelo).
+ */
+export function Balancando({
+  picos,
+  exigidos,
+  fraco,
+  titulo: tituloFixo,
+  legenda,
+  alerta,
+}: {
+  picos: number;
+  exigidos: number;
+  fraco: boolean;
+  titulo?: string;
+  legenda?: string;
+  alerta?: boolean;
+}) {
+  const titulo = tituloFixo ?? (picos >= exigidos ? 'Balançou!' : picos === 0 ? 'Sacuda!' : picos === exigidos - 1 ? 'Mais uma!' : 'Isso! De novo');
   const fatia = 360 / exigidos;
   const folga = Math.min(8, fatia / 6);
   const c = 120, r = 100;
@@ -459,13 +476,17 @@ function Balancando({ picos, exigidos, fraco }: { picos: number; exigidos: numbe
             </>
           )}
         </svg>
-        <span className={`absolute inset-0 m-auto flex size-24 items-center justify-center rounded-[28px] ${picos >= exigidos ? 'bg-verde text-verde-tinta' : 'animate-sacode bg-painel text-verde'}`}>
+        <span
+          className={`absolute inset-0 m-auto flex size-24 items-center justify-center rounded-[28px] ${
+            picos >= exigidos ? 'bg-verde text-verde-tinta' : alerta ? 'bg-morno text-morno-texto' : 'animate-sacode bg-painel text-verde'
+          }`}
+        >
           <Icone nome={picos >= exigidos ? 'check' : 'balancar'} tamanho={52} strokeWidth={picos >= exigidos ? 2.4 : 1.8} />
         </span>
       </div>
       <div className="flex flex-col items-center gap-2 text-center">
         <div className="font-display text-[44px] leading-none font-bold">{fraco ? 'Mais força!' : titulo}</div>
-        <div className="text-[17px] font-semibold text-[#C6D6CD]">{picos < exigidos ? `${picos} de ${exigidos}` : ''}</div>
+        <div className="text-[17px] font-semibold text-[#C6D6CD]">{legenda ?? (picos < exigidos ? `${picos} de ${exigidos}` : '')}</div>
       </div>
     </div>
   );
