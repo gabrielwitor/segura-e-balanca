@@ -1,4 +1,5 @@
-# Seção 15: lint, tipos, unitários, regras e E2E a cada PR.
+# Barreira do PR: lint, tipos, unitários, build e regras (rápido).
+# E2E fica local, antes de abrir o PR: npm run verificar:pr
 # PR → preview; merge na main → staging (dev) → produção com aprovação manual.
 name: ci
 on:
@@ -30,25 +31,10 @@ jobs:
         with: { distribution: temurin, java-version: 21 }
       - run: npm ci
       - run: npx firebase emulators:exec --only firestore --project demo-seb "npm run test:rules"
-  e2e:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: npm }
-      - uses: actions/setup-java@v4
-        with: { distribution: temurin, java-version: 21 }
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium webkit
-      - run: npm run build -- --mode emulador
-      - run: npx firebase emulators:exec --only firestore,auth --project demo-seb "npm run test:e2e"
-      - if: always()
-        uses: actions/upload-artifact@v4
-        with: { name: playwright-report, path: playwright-report/, retention-days: 14 }
   # PR → link de preview temporário no projeto dev.
   preview:
     if: github.event_name == 'pull_request'
-    needs: [verificar, regras, e2e]
+    needs: [verificar, regras]
     runs-on: ubuntu-latest
     permissions: { contents: read, pull-requests: write, checks: write }
     env:
@@ -74,7 +60,7 @@ jobs:
   # Merge na main → staging (site do projeto dev, URL fixa, login Google funciona).
   staging:
     if: github.event_name == 'push'
-    needs: [verificar, regras, e2e]
+    needs: [verificar, regras]
     runs-on: ubuntu-latest
     environment: { name: staging, url: 'https://segura-e-balanca-dev.web.app' }
     env:

@@ -21,7 +21,11 @@ function useMinhaPosicao(): MinhaPosicao | null {
   useEffect(() => {
     if (!('geolocation' in navigator)) return;
     const id = navigator.geolocation.watchPosition(
-      (p) => setPos({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy }),
+      (p) => {
+        // Leitura sem coordenada válida (alguns navegadores entregam NaN) derrubaria o Leaflet.
+        const { latitude: lat, longitude: lng, accuracy } = p.coords;
+        if ([lat, lng, accuracy].every(Number.isFinite)) setPos({ lat, lng, accuracy });
+      },
       () => {},
       { enableHighAccuracy: true, maximumAge: 3000, timeout: 20_000 },
     );
