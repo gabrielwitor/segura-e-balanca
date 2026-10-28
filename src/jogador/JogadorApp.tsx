@@ -103,5 +103,10 @@ export function JogadorApp() {
 
   if (atual === 'entrando') return <Entrando uid={usuario.uid} aoTerminar={terminarEntrada} aoVoltar={() => setFase('permissoes')} />;
 
-  return <Jogo uid={usuario.uid} apelido={jogador.apelido} abaInicial={soRanking ? 'ranking' : 'radar'} />;
+  return <Jogo uid={usuario.uid} apelido={jogador.apelido} abaInicial={soRanking || abaDoAtalho() === 'ranking' ? 'ranking' : 'radar'} />;
+}
+
+/** Atalho do ícone instalado ("Ranking", no manifest) abre direto na aba. */
+function abaDoAtalho(): string | null {
+  return new URLSearchParams(location.search).get('aba');
 }
