@@ -276,25 +276,35 @@ function ControlesPartida({ dados, ranking, empilhado }: { dados: DadosAdmin; ra
     ) : partida.estado === 'finalizada' ? (
       <Selo>finalizada</Selo>
     ) : (
-      <div role="group" aria-label="Estado do jogo" className={`flex rounded-[10px] p-1 ${empilhado ? 'bg-areia' : 'bg-[#24372E]'}`}>
-        <button
-          type="button"
-          aria-pressed={partida.estado === 'ativa'}
-          disabled={ocupado}
-          onClick={() => partida.estado === 'pausada' && void executar(() => retomar(partida))}
-          className={`h-9 rounded-[7px] px-4 text-sm font-bold ${partida.estado === 'ativa' ? 'bg-[#43E08A] text-[#062012]' : empilhado ? 'text-tinta' : 'text-[#E8F2EC]'}`}
-        >
-          {partida.estado === 'ativa' ? 'Ativa' : 'Retomar'}
-        </button>
-        <button
-          type="button"
-          aria-pressed={partida.estado === 'pausada'}
-          disabled={ocupado}
-          onClick={() => partida.estado === 'ativa' && void executar(() => pausar(partida))}
-          className={`h-9 rounded-[7px] px-4 text-sm font-semibold ${partida.estado === 'pausada' ? 'bg-alerta text-[#2a1e05]' : empilhado ? 'text-tinta' : 'text-[#E8F2EC]'}`}
-        >
-          {partida.estado === 'pausada' ? 'Pausada' : 'Pausar'}
-        </button>
+      // Segmentado de estado (v2): as duas metades são estados; tocar na inativa troca.
+      <div
+        role="group"
+        aria-label="Estado da partida"
+        className={`grid grid-cols-2 gap-1.5 rounded-xl p-1 ${empilhado ? 'w-full bg-[#F1EEE6]' : 'bg-[#24372E]'}`}
+      >
+        {(
+          [
+            ['ativa', 'Ativa', 'play', 'bg-mata text-white', () => retomar(partida)],
+            ['pausada', 'Pausada', 'pausa', 'bg-alerta text-[#2a1e05]', () => pausar(partida)],
+          ] as const
+        ).map(([id, rotulo, icone, corAtiva, acao]) => {
+          const atual = partida.estado === id;
+          return (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={atual}
+              disabled={ocupado}
+              onClick={() => !atual && void executar(acao)}
+              className={`flex items-center justify-center gap-2 rounded-[9px] font-bold ${empilhado ? 'h-12 text-[15px]' : 'h-9 px-4 text-sm'} ${
+                atual ? corAtiva : empilhado ? 'text-[#3F4A44]' : 'text-[#E8F2EC]'
+              }`}
+            >
+              <Icone nome={icone} tamanho={empilhado ? 16 : 14} strokeWidth={2.2} />
+              {rotulo}
+            </button>
+          );
+        })}
       </div>
     );
 
