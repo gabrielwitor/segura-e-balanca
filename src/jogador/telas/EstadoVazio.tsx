@@ -1,54 +1,59 @@
 import type { Partida } from '@/dominio/tipos';
-import { Icone } from '@/ui/Icone';
-import { haQuanto } from '@/ui/tempo';
+import { Icone, type NomeIcone } from '@/ui/Icone';
+import { hora, haQuanto } from '@/ui/tempo';
 import { useAgora } from '../dados';
-import { BotaoSecundario } from './Tela';
 
-/** Tela 7 · Sem pontos / pausado (RF-18), e partida em rascunho ou encerrada. */
+/** Tela 13 · pausado (RF-18), partida em rascunho, sem pistas e encerrada. */
 export function EstadoVazio({
   partida,
   semPontos,
   ultimoPull,
+  minhaPosicao,
   irParaRanking,
 }: {
   partida: Partida | undefined;
   semPontos: boolean;
   ultimoPull: number | undefined;
+  minhaPosicao?: { pos: number; pontos: number };
   irParaRanking: () => void;
 }) {
   const agora = useAgora(5000);
-  let t: { icone: 'pausa' | 'local' | 'bandeira' | 'relogio'; titulo: string; texto: string; status: string };
-  const verificacao = ultimoPull ? `Última verificação há ${haQuanto(agora - ultimoPull)}.` : 'Atualiza sozinho quando houver internet.';
-  if (partida?.estado === 'pausada')
+  const verificado = ultimoPull ? `Verificado há ${haQuanto(agora - ultimoPull)}` : '';
+  let t: { icone: NomeIcone; cor: string; titulo: string; texto: string; status: string; botao: string; forte: boolean };
+  if (partida?.estado === 'pausada') {
+    const desde = partida.pausas.at(-1)?.de;
+    t = { icone: 'pausa', cor: 'bg-morno text-morno-texto', titulo: 'Jogo pausado', texto: 'Balançadas agora não contam.', status: desde ? `Desde ${hora(desde).slice(0, 5)}` : '', botao: 'Ver ranking', forte: false };
+  } else if (partida?.estado === 'finalizada')
     t = {
-      icone: 'pausa',
-      titulo: 'Jogo pausado',
-      texto: 'Os organizadores pausaram a partida. Balançadas feitas agora não contam. O radar volta assim que a partida for retomada.',
-      status: 'Atualiza sozinho quando houver internet.',
+      icone: 'bandeira',
+      cor: 'bg-[#12301F] text-verde',
+      titulo: 'Partida encerrada',
+      texto: minhaPosicao ? `Você terminou em ${minhaPosicao.pos}º, com ${minhaPosicao.pontos} pts.` : '',
+      status: '',
+      botao: 'Ver ranking final',
+      forte: true,
     };
-  else if (partida?.estado === 'finalizada')
-    t = { icone: 'bandeira', titulo: 'Partida encerrada', texto: 'O ranking final está congelado. Obrigado por jogar!', status: verificacao };
   else if (!partida || partida.estado === 'rascunho')
-    t = { icone: 'relogio', titulo: 'A partida ainda não começou', texto: 'Os organizadores estão preparando os pontos. O radar aparece sozinho quando abrirem.', status: verificacao };
-  else
-    t = {
-      icone: 'local',
-      titulo: semPontos ? 'Nenhum ponto ativo' : 'Sem pistas',
-      texto: 'Os organizadores ainda não liberaram pontos nesta partida. Fique por perto: o radar aparece sozinho.',
-      status: verificacao,
-    };
+    t = { icone: 'relogio', cor: 'bg-painel text-suave', titulo: 'A partida ainda não começou', texto: 'O radar aparece quando abrir.', status: verificado, botao: 'Ver ranking', forte: false };
+  else t = { icone: 'local', cor: 'bg-painel text-suave', titulo: semPontos ? 'Nenhuma pista no momento' : 'Sem pistas', texto: '', status: verificado, botao: 'Ver ranking', forte: false };
 
   return (
-    <section className="flex grow flex-col items-center justify-center gap-4 py-10 text-center" data-testid="estado-vazio">
-      <span className="flex size-20 items-center justify-center rounded-full bg-painel text-suave">
-        <Icone nome={t.icone} tamanho={36} />
-      </span>
-      <h2 className="m-0 font-display text-3xl font-bold">{t.titulo}</h2>
-      <p className="m-0 max-w-xs text-base leading-relaxed text-suave">{t.texto}</p>
-      <p className="m-0 text-sm text-fraco">{t.status}</p>
-      <BotaoSecundario className="mt-4 max-w-xs" onClick={irParaRanking}>
-        Ver ranking
-      </BotaoSecundario>
+    <section className="flex grow flex-col" data-testid="estado-vazio">
+      <div className="flex grow flex-col items-center justify-center gap-4 px-2 text-center">
+        <span className={`flex size-24 items-center justify-center rounded-full ${t.cor}`}>
+          <Icone nome={t.icone} tamanho={40} />
+        </span>
+        <h2 className="m-0 font-display text-[30px] leading-tight font-bold">{t.titulo}</h2>
+        {t.texto && <p className="m-0 max-w-xs text-base text-[#C6D6CD]">{t.texto}</p>}
+        {t.status && <p className="m-0 text-[13px] text-suave">{t.status}</p>}
+      </div>
+      <button
+        type="button"
+        onClick={irParaRanking}
+        className={`mb-4 h-14 rounded-2xl font-display text-[17px] font-bold ${t.forte ? 'bg-verde text-verde-tinta' : 'border border-borda text-texto'}`}
+      >
+        {t.botao}
+      </button>
     </section>
   );
 }

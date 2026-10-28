@@ -113,7 +113,13 @@ export function Radar({ uid, apelido, dados, sessao, irParaRanking }: Props) {
     return (
       <>
         <Cabecalho uid={uid} apelido={apelido} dados={dados} />
-        <EstadoVazio partida={partida} semPontos={ativos.length === 0} ultimoPull={sessao.ultimoPull} irParaRanking={irParaRanking} />
+        <EstadoVazio
+          partida={partida}
+          semPontos={ativos.length === 0}
+          ultimoPull={sessao.ultimoPull}
+          minhaPosicao={dados.ranking.ranking.find((l) => l.uid === uid)}
+          irParaRanking={irParaRanking}
+        />
       </>
     );
 

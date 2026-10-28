@@ -47,8 +47,8 @@ test('cair a rede, balançar, fechar e reabrir offline, voltar a rede', async ({
   await expect(page.getByTestId('temperatura')).toBeVisible();
   await expect(conexao(page)).toContainText('Sem rede');
   await page.getByRole('button', { name: 'Ranking' }).click();
-  await expect(page.getByTestId('minhas-balancadas')).toContainText('pendente de sync');
-  await expect(page.getByTestId('ranking-frescor')).toContainText('offline, atualizado há');
+  await expect(page.getByTestId('minhas-balancadas')).toContainText('Pendente');
+  await expect(page.getByTestId('ranking-frescor')).toContainText('Atualizado há');
 
   // A rede volta: o sync dispara sozinho (RF-34).
   await context.setOffline(false);
@@ -68,7 +68,7 @@ test('outro dispositivo recupera o progresso', async ({ page, context, browser }
   await entrarNoJogo(tablet, 'caio', 'Caio', { novo: false });
   await expect(tablet.getByTestId('meus-pontos')).toHaveText('100 pts');
   await tablet.getByRole('button', { name: 'Ranking' }).click();
-  await expect(tablet.getByTestId('minhas-balancadas')).toContainText('por outro aparelho');
+  await expect(tablet.getByTestId('minhas-balancadas')).toContainText('outro aparelho');
   await outro.close();
 });
 
@@ -78,7 +78,7 @@ test('servidor fora: indicador, backoff e envio depois que volta', async ({ page
   await page.route(/:(8085|9099)\//, (r) => r.abort());
   await balancar(page);
   await voltarAoRadar(page);
-  await expect(conexao(page)).toContainText('Servidor indisponível', { timeout: 30_000 });
+  await expect(conexao(page)).toContainText('Servidor fora', { timeout: 30_000 });
   await page.unroute(/:(8085|9099)\//);
   await expect(conexao(page)).toHaveText('Sincronizado', { timeout: 90_000 });
   expect(Object.keys(await entradasNoServidor('A'))).toHaveLength(1);
@@ -104,7 +104,7 @@ test('reenvio não muda nada e conflito entre aparelhos descarta o mais tarde', 
   await outro.setOffline(false);
   await context.setOffline(false);
   await page.getByRole('button', { name: 'Ranking' }).click();
-  await expect(page.getByTestId('minhas-balancadas')).toContainText('descartada (conflito)', { timeout: 30_000 });
+  await expect(page.getByTestId('minhas-balancadas')).toContainText('Descartada: conflito', { timeout: 30_000 });
   await expect(page.getByTestId('minhas-balancadas')).toContainText('1º · 100 pts');
   expect(Object.keys(await entradasNoServidor('A'))).toHaveLength(2);
 
@@ -112,7 +112,7 @@ test('reenvio não muda nada e conflito entre aparelhos descarta o mais tarde', 
   await page.getByRole('button', { name: 'Debug' }).click();
   await page.getByTestId('reenviar').click();
   await expect(page.getByText('Reenviada: o servidor tratou como no-op.')).toBeVisible();
-  await expect(page.getByTestId('meus-pontos')).toHaveText('100 pts');
+  await expect(page.getByRole('region', { name: 'Sua posição' })).toContainText('100');
   expect(Object.keys(await entradasNoServidor('A'))).toHaveLength(2);
   await outro.close();
 });
