@@ -63,11 +63,11 @@ export function usePosicao(ativo: boolean): EstadoGps {
   useEffect(() => {
     if (!ativo || !aba || !('geolocation' in navigator)) return;
     const id = navigator.geolocation.watchPosition(
-      (p) =>
-        setEstado({
-          tipo: 'ok',
-          leitura: { lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy, t: p.timestamp },
-        }),
+      (p) => {
+        const { latitude: lat, longitude: lng, accuracy } = p.coords;
+        // Leitura sem coordenada válida (alguns navegadores entregam NaN) é ignorada.
+        if ([lat, lng, accuracy].every(Number.isFinite)) setEstado({ tipo: 'ok', leitura: { lat, lng, accuracy, t: p.timestamp } });
+      },
       (e) => setEstado(e.code === e.PERMISSION_DENIED ? { tipo: 'negado' } : (s) => (s.tipo === 'ok' ? s : { tipo: 'erro' })),
       { enableHighAccuracy: true, maximumAge: 2000, timeout: 20_000 },
     );

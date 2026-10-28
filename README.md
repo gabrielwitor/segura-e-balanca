@@ -31,6 +31,15 @@ npm run dev                 # outro terminal: app em http://localhost:5173 apont
 | `npx firebase emulators:exec --only firestore --project demo-seb "npm run test:rules"` | Regras do Firestore |
 | `npm run build -- --mode emulador && npx firebase emulators:exec --only firestore,auth --project demo-seb "npm run test:e2e"` | Playwright: os cenários do enunciado |
 
+### Antes de abrir um PR
+
+```bash
+npm run verificar:pr   # lint, tipos, unitários, regras e E2E (Pixel 7) contra o emulador
+```
+
+O CI do PR só barra lint, tipos, unitários, build e regras, para ser rápido. Os E2E (os cenários do
+enunciado) rodam localmente com esse comando: rode sempre antes de abrir ou atualizar um PR.
+
 ## 2. Arquitetura
 
 Três componentes:
@@ -125,7 +134,7 @@ leitura do Spark, vibração no iOS.
 
 Unitários (40), regras (17) e E2E no perfil Pixel 7 (7 cenários: online, offline + reabrir + voltar, outro aparelho,
 servidor fora, reenvio + conflito, fora do raio, acessibilidade com axe) passam localmente. O perfil iPhone 14 (WebKit)
-roda no CI; localmente exige `sudo npx playwright install-deps webkit`. Sensores reais (bússola, acelerômetro,
+exige `sudo npx playwright install-deps webkit` para rodar localmente. Sensores reais (bússola, acelerômetro,
 vibração) só se validam no aparelho.
 
 ## Deploy
