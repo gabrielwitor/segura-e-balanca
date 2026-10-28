@@ -485,6 +485,7 @@ function BotaoBalancar({
   const armar = () => {
     if (!pode) return;
     destravarSom();
+    feedback.armou();
     void pedirPermissaoDeMovimento();
     if (soltar.current) clearTimeout(soltar.current);
     setArmado(true);
