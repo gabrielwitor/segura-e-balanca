@@ -20,7 +20,7 @@ export function CheckIn({ usuario, aoContinuar }: Props) {
 const COMO_JOGAR: [NomeIcone, string, string][] = [
   ['radar', 'Siga o radar', 'bg-frio text-[#A9C8FF]'],
   ['local', 'Chegue na área', 'bg-[#3A2410] text-[#FFB08A]'],
-  ['balancar', 'Segure e sacuda', 'bg-[#12301F] text-verde'],
+  ['balancar', 'Segure e balance', 'bg-[#12301F] text-verde'],
 ];
 
 function Login() {

@@ -430,7 +430,7 @@ export function Balancando({
   legenda?: string;
   alerta?: boolean;
 }) {
-  const titulo = tituloFixo ?? (picos >= exigidos ? 'Balançou!' : picos === 0 ? 'Sacuda!' : picos === exigidos - 1 ? 'Mais uma!' : 'Isso! De novo');
+  const titulo = tituloFixo ?? (picos >= exigidos ? 'Balançou!' : picos === 0 ? 'Balance!' : picos === exigidos - 1 ? 'Mais uma!' : 'Isso! De novo');
   const fatia = 360 / exigidos;
   const folga = Math.min(8, fatia / 6);
   const c = 120, r = 100;
@@ -630,7 +630,7 @@ function BotaoBalancar({
       }`}
     >
       <span className="font-display text-[23px] font-bold">{armado ? 'Segurando…' : 'Segura e balança!'}</span>
-      <span className="text-[13px] font-semibold opacity-85">{armado ? 'solte para cancelar' : 'segure o botão e sacuda'}</span>
+      <span className="text-[13px] font-semibold opacity-85">{armado ? 'solte para cancelar' : 'segure o botão e balance'}</span>
     </button>
   );
 }
