@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 
 /** Moldura do jogador: coluna de celular, centrada em telas largas. */
 export function Tela({ children, carregando, className = '' }: { children?: ReactNode; carregando?: boolean; className?: string }) {
@@ -59,4 +60,12 @@ export function Logo({ grande }: { grande?: boolean }) {
       <span className="text-verde">Balança</span>
     </h1>
   );
+}
+
+/**
+ * Painéis e telas por cima do jogo vão direto no <body>: dentro das abas (puxar para atualizar),
+ * o Safari do iOS os deixava atrás da barra de navegação.
+ */
+export function Sobreposicao({ children }: { children: ReactNode }) {
+  return createPortal(children, document.body);
 }
