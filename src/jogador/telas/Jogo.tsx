@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Icone } from '@/ui/Icone';
-import { useConexao, useDadosDoJogo, useSessao } from '../dados';
-import { feedback } from '../feedback';
+import { useDadosDoJogo, useSessao } from '../dados';
+import { Avisos } from './Avisos';
 import { ligarEscuta } from '../servicos';
 import { Radar } from './Radar';
 import { Ranking } from './Ranking';
@@ -22,18 +22,6 @@ export function Jogo({ uid, apelido, abaInicial }: { uid: string; apelido: strin
   // Seção 6.3: listeners ligados enquanto estiver no jogo (o SDK reconecta sozinho).
   useEffect(() => ligarEscuta(uid), [uid]);
 
-  // "Whoosh" quando pendências acumuladas sem conexão terminam de subir.
-  const conexao = useConexao();
-  const acumulouOffline = useRef(false);
-  const pendentes = dados?.pendentes ?? 0;
-  useEffect(() => {
-    if (pendentes > 0 && conexao !== 'online') acumulouOffline.current = true;
-    if (pendentes === 0 && conexao === 'online' && acumulouOffline.current) {
-      acumulouOffline.current = false;
-      feedback.sincronizou();
-    }
-  }, [pendentes, conexao]);
-
   const [dicas, setDicas] = useState(() => !dicasVistas.ler());
 
   if (!dados || !sessao) return <Tela carregando />;
@@ -48,6 +36,7 @@ export function Jogo({ uid, apelido, abaInicial }: { uid: string; apelido: strin
       )}
       {aba === 'historico' && <Historico uid={uid} voltar={() => setAba('ranking')} />}
       <PainelDebug dados={dados} />
+      <Avisos dados={dados} />
       {dicas && aba === 'radar' && dados.partida?.estado === 'ativa' && (
         <PrimeiraVez
           aoFechar={() => {
