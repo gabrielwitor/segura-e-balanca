@@ -5,39 +5,60 @@ import { normalizarApelido, validarApelido, sugerirApelido } from '@/dominio/ape
 import { esperaDoBackoff } from '@/dominio/backoff';
 
 describe('balanço (RF-22)', () => {
-  const sacudir = (det: DetectorDeBalanco, inicio: number, picos: number, passo = 200) => {
+  // Amostra parada em t=0 (inicia a carência); sacudidas começam depois dela.
+  const sacudir = (det: DetectorDeBalanco, picos: number, passo = 200, inicio = 400) => {
+    det.alimentar({ x: 0, y: 0, z: 9.8, t: 0 });
     let ok = false;
     for (let i = 0; i <= picos; i++) ok = det.alimentar({ x: i % 2 ? 20 : -5, y: 0, z: 9.8, t: inicio + i * passo }).completo || ok;
     return ok;
   };
-  it('3 picos em 2 s completam o gesto', () => {
-    expect(sacudir(new DetectorDeBalanco(), 0, 3)).toBe(true);
+
+  it('padrão: 4 sacudidas completam o gesto, 3 não', () => {
+    expect(sacudir(new DetectorDeBalanco(), 4)).toBe(true);
+    expect(sacudir(new DetectorDeBalanco(), 3)).toBe(false);
   });
-  it('2 picos não bastam', () => {
-    expect(sacudir(new DetectorDeBalanco(), 0, 2)).toBe(false);
+
+  it('o número de sacudidas é configurável por ponto', () => {
+    expect(sacudir(new DetectorDeBalanco(2), 2)).toBe(true);
+    expect(sacudir(new DetectorDeBalanco(6), 5)).toBe(false);
+    expect(sacudir(new DetectorDeBalanco(6), 6)).toBe(true);
   });
-  it('informa o progresso de cada sacudida (1 de 3, 2 de 3)', () => {
+
+  it('o tranco do toque que arma o gesto não conta como sacudida', () => {
     const d = new DetectorDeBalanco();
-    const r = [0, 1, 2, 3].map((i) => d.alimentar({ x: i % 2 ? 20 : -5, y: 0, z: 9.8, t: i * 200 }));
-    expect(r.map((x) => x.picos)).toEqual([0, 1, 2, 3]);
-    expect(r.map((x) => x.novoPico)).toEqual([false, true, true, true]);
-    expect(r[3]!.completo).toBe(true);
+    d.alimentar({ x: 0, y: 0, z: 9.8, t: 0 });
+    // Pancada forte logo depois de armar (dentro da carência): ignorada.
+    expect(d.alimentar({ x: 30, y: 0, z: 9.8, t: 80 }).picos).toBe(0);
+    expect(d.alimentar({ x: 0, y: 0, z: 9.8, t: 200 }).picos).toBe(0);
+    // Depois da carência, conta normalmente.
+    expect(d.alimentar({ x: 30, y: 0, z: 9.8, t: 400 }).picos).toBe(1);
+  });
+
+  it('informa o progresso de cada sacudida (1 de 4, 2 de 4…)', () => {
+    const d = new DetectorDeBalanco();
+    d.alimentar({ x: 0, y: 0, z: 9.8, t: 0 });
+    const r = [0, 1, 2, 3, 4].map((i) => d.alimentar({ x: i % 2 ? 20 : -5, y: 0, z: 9.8, t: 400 + i * 200 }));
+    expect(r.map((x) => x.picos)).toEqual([0, 1, 2, 3, 4]);
+    expect(r.map((x) => x.novoPico)).toEqual([false, true, true, true, true]);
+    expect(r[4]!.completo).toBe(true);
   });
 
   it('o progresso volta a zero se a pessoa parar', () => {
     const d = new DetectorDeBalanco();
-    d.alimentar({ x: -5, y: 0, z: 9.8, t: 0 });
-    expect(d.alimentar({ x: 20, y: 0, z: 9.8, t: 200 }).picos).toBe(1);
-    expect(d.alimentar({ x: 20, y: 0, z: 9.8, t: 3000 }).picos).toBe(0);
+    d.alimentar({ x: 0, y: 0, z: 9.8, t: 0 });
+    d.alimentar({ x: -5, y: 0, z: 9.8, t: 400 });
+    expect(d.alimentar({ x: 20, y: 0, z: 9.8, t: 600 }).picos).toBe(1);
+    expect(d.alimentar({ x: 20, y: 0, z: 9.8, t: 4000 }).picos).toBe(0);
   });
 
   it('picos espaçados demais não contam', () => {
-    expect(sacudir(new DetectorDeBalanco(), 0, 3, 1100)).toBe(false);
+    expect(sacudir(new DetectorDeBalanco(), 4, 1100)).toBe(false);
   });
+
   it('balanço leve não conta', () => {
     const d = new DetectorDeBalanco();
     let ok = false;
-    for (let i = 0; i < 20; i++) ok = d.alimentar({ x: i % 2 ? 5 : -5, y: 0, z: 9.8, t: i * 100 }).completo || ok;
+    for (let i = 0; i < 30; i++) ok = d.alimentar({ x: i % 2 ? 5 : -5, y: 0, z: 9.8, t: i * 100 }).completo || ok;
     expect(ok).toBe(false);
   });
 });

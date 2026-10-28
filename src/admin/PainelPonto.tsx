@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { pontosDaPosicao, tabelaDePontos } from '@/dominio/pontuacao';
+import { SACUDIDAS_MAX, SACUDIDAS_MIN } from '@/dominio/constantes';
 import type { EntradaNaFila, ResultadoRanking } from '@/dominio/ranking';
 import type { Fila, Partida, Ponto } from '@/dominio/tipos';
 import { hora } from '@/ui/tempo';
@@ -29,14 +30,21 @@ export function EditorPonto({
   }, [ponto]);
 
   const num = (s: string) => Number(s.replace(',', '.'));
+  const sacudidasOk = Number.isInteger(num(f.sacudidas)) && num(f.sacudidas) >= SACUDIDAS_MIN && num(f.sacudidas) <= SACUDIDAS_MAX;
   const valido =
-    num(f.valorBase) > 0 && num(f.passo) >= 0 && num(f.passo) <= 100 && num(f.piso) >= 0 && num(f.piso) <= 100 && num(f.raio) > 0;
+    num(f.valorBase) > 0 && num(f.passo) >= 0 && num(f.passo) <= 100 && num(f.piso) >= 0 && num(f.piso) <= 100 && num(f.raio) > 0 && sacudidasOk;
   const regra = valido ? { valorBase: num(f.valorBase), passoPct: num(f.passo) / 100, pisoPct: num(f.piso) / 100 } : null;
 
   const salvar = async () => {
     if (!regra) return;
     try {
-      await salvarPonto(ponto.id, { nome: f.nome.trim() || `Ponto ${ponto.numero}`, raioM: num(f.raio), dica: f.dica.trim(), ...regra });
+      await salvarPonto(ponto.id, {
+        nome: f.nome.trim() || `Ponto ${ponto.numero}`,
+        raioM: num(f.raio),
+        dica: f.dica.trim(),
+        sacudidas: num(f.sacudidas),
+        ...regra,
+      });
       setMsg('Salvo. Os jogadores recebem no próximo sync.');
     } catch (e) {
       setMsg(`Não salvou: ${e instanceof Error ? e.message : e}`);
@@ -62,12 +70,26 @@ export function EditorPonto({
         }}
       >
         <Campo id="nome" rotulo="Nome (só o admin vê)" value={f.nome} onChange={(e) => setF({ ...f, nome: e.target.value })} />
-        <div className="grid grid-cols-4 gap-2.5">
+        <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-5">
           <Campo id="vb" rotulo="Valor-base" inputMode="numeric" value={f.valorBase} onChange={(e) => setF({ ...f, valorBase: e.target.value })} />
           <Campo id="ps" rotulo="Passo %" inputMode="decimal" value={f.passo} onChange={(e) => setF({ ...f, passo: e.target.value })} />
           <Campo id="pi" rotulo="Piso %" inputMode="decimal" value={f.piso} onChange={(e) => setF({ ...f, piso: e.target.value })} />
           <Campo id="ra" rotulo="Raio m" inputMode="numeric" value={f.raio} onChange={(e) => setF({ ...f, raio: e.target.value })} />
+          <Campo
+            id="sc"
+            rotulo="Sacudidas"
+            inputMode="numeric"
+            value={f.sacudidas}
+            aria-invalid={!sacudidasOk}
+            aria-describedby={sacudidasOk ? undefined : 'sc-erro'}
+            onChange={(e) => setF({ ...f, sacudidas: e.target.value })}
+          />
         </div>
+        {!sacudidasOk && (
+          <p id="sc-erro" role="alert" className="-mt-1.5 mb-0 text-[13px] text-perigo">
+            Sacudidas: de {SACUDIDAS_MIN} a {SACUDIDAS_MAX}.
+          </p>
+        )}
         <Campo id="dc" rotulo="Dica (opcional)" value={f.dica} onChange={(e) => setF({ ...f, dica: e.target.value })} />
         {regra && (
           <p className="m-0 text-[13px] text-tinta-suave">
@@ -133,6 +155,7 @@ function paraForm(p: Ponto) {
     passo: String(Math.round(p.passoPct * 1000) / 10),
     piso: String(Math.round(p.pisoPct * 1000) / 10),
     raio: String(p.raioM),
+    sacudidas: String(p.sacudidas),
     dica: p.dica,
   };
 }

@@ -79,7 +79,9 @@ export async function balancar(page: Page) {
   await expect(botao).toBeEnabled();
   await botao.dispatchEvent('pointerdown');
   await page.evaluate(async () => {
-    for (let i = 0; i < 6; i++) {
+    // Espera a carência do toque (300 ms) e manda sacudidas de sobra para o padrão de 4.
+    await new Promise((r) => setTimeout(r, 350));
+    for (let i = 0; i < 8; i++) {
       const x = i % 2 ? 25 : -25;
       // O WebKit não deixa construir DeviceMotionEvent: um Event comum com o mesmo campo serve.
       const ev = new Event('devicemotion');

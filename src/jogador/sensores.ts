@@ -109,16 +109,20 @@ export function useBussola(ativo: boolean): number | null {
  * RF-22: escuta devicemotion só enquanto armado. `aoProgresso` recebe quantas sacudidas valem
  * agora (0–3) a cada mudança; `aoBalancar` dispara quando o gesto completa.
  */
-export function useBalanco(armado: boolean, aoBalancar: () => void, aoProgresso?: (picos: number, novoPico: boolean) => void): void {
-  const detector = useRef(new DetectorDeBalanco());
+export function useBalanco(
+  armado: boolean,
+  aoBalancar: () => void,
+  aoProgresso?: (picos: number, novoPico: boolean) => void,
+  exigidos?: number,
+): void {
   const cbs = useRef({ aoBalancar, aoProgresso });
   useEffect(() => {
     cbs.current = { aoBalancar, aoProgresso };
   });
   useEffect(() => {
     if (!armado) return;
-    const d = detector.current;
-    d.reiniciar();
+    // Detector novo a cada vez que arma: começa do zero, com a carência e o número do ponto.
+    const d = new DetectorDeBalanco(exigidos);
     let ultimo = 0;
     const f = (e: DeviceMotionEvent) => {
       const a = e.accelerationIncludingGravity;
@@ -130,5 +134,5 @@ export function useBalanco(armado: boolean, aoBalancar: () => void, aoProgresso?
     };
     window.addEventListener('devicemotion', f);
     return () => window.removeEventListener('devicemotion', f);
-  }, [armado]);
+  }, [armado, exigidos]);
 }
