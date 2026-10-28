@@ -5,6 +5,7 @@ import { escutarServidor, guardarInstantaneo } from '@/sync/pull';
 import { Sincronizador } from '@/sync/saida';
 import type { Cancelar } from '@/sync/remoto';
 import { RemotoFirebase } from '@/firebase/remoto';
+import { sair } from '@/firebase/conta';
 import { destravarNoPrimeiroToque } from './feedback';
 
 /**
@@ -68,6 +69,23 @@ async function trocarDePartida(uid: string, partidaId: string | null): Promise<v
   await limparPartida(db);
   await db.sessao.put({ ...jogador, partidaId });
   if (partidaId) await remoto.registrarParticipacao(uid, partidaId).catch(() => {});
+}
+
+/**
+ * Sair da conta neste aparelho. Recusa com balançadas pendentes: elas só sobem com esta conta
+ * logada e seriam perdidas. Mantém o que é do aparelho (id, preferências, dicas vistas).
+ */
+export async function sairDaConta(): Promise<void> {
+  const pendentes = await db.saida.where('status').anyOf('pendente', 'enviando').count();
+  if (pendentes > 0) throw new Error(`${pendentes} ${pendentes === 1 ? 'balançada não enviada' : 'balançadas não enviadas'}`);
+  desligarEscuta();
+  uidAtual = null;
+  await db.transaction('rw', db.sessao, db.historico, db.saida, async () => {
+    await db.sessao.delete('jogador');
+    await db.historico.clear();
+    await db.saida.where('status').equals('rejeitada').delete();
+  });
+  await sair();
 }
 
 export type EtapaEntrada = 'conta' | 'relogio' | 'pontos' | 'guardando' | 'pronto';

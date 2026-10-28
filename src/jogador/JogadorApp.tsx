@@ -28,6 +28,14 @@ export function JogadorApp() {
     return observarUsuario(setUsuario);
   }, []);
 
+  // Saiu da conta: o próximo login começa o fluxo do zero.
+  useEffect(() => {
+    if (usuario !== null) return;
+    setFase(null);
+    setTotalPassos(null);
+    setSoRanking(false);
+  }, [usuario]);
+
   // RF-03: em outro aparelho, recupera o apelido do servidor antes de decidir a tela.
   useEffect(() => {
     if (!usuario) return;
