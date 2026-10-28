@@ -1,4 +1,5 @@
-# Seção 15: lint, tipos, unitários, regras e E2E a cada PR; preview por PR; produção na main.
+# Seção 15: lint, tipos, unitários, regras e E2E a cada PR.
+# PR → preview; merge na main → staging (dev) → produção com aprovação manual.
 name: ci
 on:
   pull_request:
@@ -44,38 +45,77 @@ jobs:
       - if: always()
         uses: actions/upload-artifact@v4
         with: { name: playwright-report, path: playwright-report/, retention-days: 14 }
-  publicar:
+  # PR → link de preview temporário no projeto dev.
+  preview:
+    if: github.event_name == 'pull_request'
     needs: [verificar, regras, e2e]
     runs-on: ubuntu-latest
     permissions: { contents: read, pull-requests: write, checks: write }
-    environment: ${{ github.event_name == 'push' && 'producao' || 'preview' }}
-    # Sem as contas de serviço (seção 15.4) o deploy é pulado com aviso, sem deixar o CI vermelho.
     env:
-      SA_DEV: ${{ secrets.FIREBASE_SA_DEV }}
-      SA_PROD: ${{ secrets.FIREBASE_SA_PROD }}
+      SA_DEV: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SEGURA_E_BALANCA_DEV }}
     steps:
-      - if: (github.event_name == 'pull_request' && env.SA_DEV == '') || (github.event_name == 'push' && env.SA_PROD == '')
-        run: echo "::notice::Deploy pulado. Configure os secrets FIREBASE_SA_DEV/FIREBASE_SA_PROD (seção 15.4 do design)."
-
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - if: env.SA_DEV == ''
+        run: echo "::notice::Preview pulado. Falta o secret FIREBASE_SERVICE_ACCOUNT_SEGURA_E_BALANCA_DEV."
+      - if: env.SA_DEV != ''
+        uses: actions/checkout@v4
+      - if: env.SA_DEV != ''
+        uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
-      - run: npm ci
-      # PR → canal de preview no segura-e-balanca-dev (link comentado no PR, expira em 7 dias)
-      - if: github.event_name == 'pull_request' && env.SA_DEV != ''
-        run: npm run build -- --mode dev
-      - if: github.event_name == 'pull_request' && env.SA_DEV != ''
+      - if: env.SA_DEV != ''
+        run: npm ci && npm run build -- --mode dev
+      - if: env.SA_DEV != ''
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SA_DEV }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SEGURA_E_BALANCA_DEV }}
           projectId: segura-e-balanca-dev
           expires: 7d
-      # main → produção: app + regras + índices
-      - if: github.event_name == 'push' && env.SA_PROD != ''
-        run: npm run build -- --mode prod
-      - if: github.event_name == 'push' && env.SA_PROD != ''
+
+  # Merge na main → staging (site do projeto dev, URL fixa, login Google funciona).
+  staging:
+    if: github.event_name == 'push'
+    needs: [verificar, regras, e2e]
+    runs-on: ubuntu-latest
+    environment: { name: staging, url: 'https://segura-e-balanca-dev.web.app' }
+    env:
+      SA_DEV: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SEGURA_E_BALANCA_DEV }}
+    steps:
+      - if: env.SA_DEV == ''
+        run: echo "::notice::Staging pulado. Falta o secret FIREBASE_SERVICE_ACCOUNT_SEGURA_E_BALANCA_DEV."
+      - if: env.SA_DEV != ''
+        uses: actions/checkout@v4
+      - if: env.SA_DEV != ''
+        uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - if: env.SA_DEV != ''
+        run: npm ci && npm run build -- --mode dev
+      - if: env.SA_DEV != ''
         uses: google-github-actions/auth@v2
-        with: { credentials_json: '${{ secrets.FIREBASE_SA_PROD }}' }
-      - if: github.event_name == 'push' && env.SA_PROD != ''
+        with: { credentials_json: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_SEGURA_E_BALANCA_DEV }}' }
+      - if: env.SA_DEV != ''
+        run: npx firebase deploy --only hosting,firestore:rules,firestore:indexes --project dev --non-interactive
+
+  # Produção: espera aprovação manual no environment "producao" (Review deployments → Approve).
+  # Não promover durante a gincana (seção 15.5).
+  producao:
+    if: github.event_name == 'push'
+    needs: [staging]
+    runs-on: ubuntu-latest
+    environment: { name: producao, url: 'https://segura-e-balanca-prod.web.app' }
+    env:
+      SA_PROD: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SEGURA_E_BALANCA_PROD }}
+    steps:
+      - if: env.SA_PROD == ''
+        run: echo "::notice::Produção pulada. Falta o secret FIREBASE_SERVICE_ACCOUNT_SEGURA_E_BALANCA_PROD."
+      - if: env.SA_PROD != ''
+        uses: actions/checkout@v4
+      - if: env.SA_PROD != ''
+        uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - if: env.SA_PROD != ''
+        run: npm ci && npm run build -- --mode prod
+      - if: env.SA_PROD != ''
+        uses: google-github-actions/auth@v2
+        with: { credentials_json: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_SEGURA_E_BALANCA_PROD }}' }
+      - if: env.SA_PROD != ''
         run: npx firebase deploy --only hosting,firestore:rules,firestore:indexes --project prod --non-interactive
