@@ -7,7 +7,7 @@ import { esperaDoBackoff } from '@/dominio/backoff';
 describe('balanço (RF-22)', () => {
   const sacudir = (det: DetectorDeBalanco, inicio: number, picos: number, passo = 200) => {
     let ok = false;
-    for (let i = 0; i <= picos; i++) ok = det.alimentar({ x: i % 2 ? 20 : -5, y: 0, z: 9.8, t: inicio + i * passo }) || ok;
+    for (let i = 0; i <= picos; i++) ok = det.alimentar({ x: i % 2 ? 20 : -5, y: 0, z: 9.8, t: inicio + i * passo }).completo || ok;
     return ok;
   };
   it('3 picos em 2 s completam o gesto', () => {
@@ -16,13 +16,28 @@ describe('balanço (RF-22)', () => {
   it('2 picos não bastam', () => {
     expect(sacudir(new DetectorDeBalanco(), 0, 2)).toBe(false);
   });
+  it('informa o progresso de cada sacudida (1 de 3, 2 de 3)', () => {
+    const d = new DetectorDeBalanco();
+    const r = [0, 1, 2, 3].map((i) => d.alimentar({ x: i % 2 ? 20 : -5, y: 0, z: 9.8, t: i * 200 }));
+    expect(r.map((x) => x.picos)).toEqual([0, 1, 2, 3]);
+    expect(r.map((x) => x.novoPico)).toEqual([false, true, true, true]);
+    expect(r[3]!.completo).toBe(true);
+  });
+
+  it('o progresso volta a zero se a pessoa parar', () => {
+    const d = new DetectorDeBalanco();
+    d.alimentar({ x: -5, y: 0, z: 9.8, t: 0 });
+    expect(d.alimentar({ x: 20, y: 0, z: 9.8, t: 200 }).picos).toBe(1);
+    expect(d.alimentar({ x: 20, y: 0, z: 9.8, t: 3000 }).picos).toBe(0);
+  });
+
   it('picos espaçados demais não contam', () => {
     expect(sacudir(new DetectorDeBalanco(), 0, 3, 1100)).toBe(false);
   });
   it('balanço leve não conta', () => {
     const d = new DetectorDeBalanco();
     let ok = false;
-    for (let i = 0; i < 20; i++) ok = d.alimentar({ x: i % 2 ? 5 : -5, y: 0, z: 9.8, t: i * 100 }) || ok;
+    for (let i = 0; i < 20; i++) ok = d.alimentar({ x: i % 2 ? 5 : -5, y: 0, z: 9.8, t: i * 100 }).completo || ok;
     expect(ok).toBe(false);
   });
 });

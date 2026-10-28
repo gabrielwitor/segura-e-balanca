@@ -48,6 +48,44 @@
   --animate-varredura: varredura 4s linear infinite;
   --animate-pulso: pulso 1.4s ease-out infinite;
   --animate-onda: onda 0.9s ease-out forwards;
+  --animate-sacode: sacode 0.5s ease-in-out infinite;
+  --animate-acende: acende 0.35s ease-out;
+  --animate-confete: confete 1.6s cubic-bezier(0.2, 0.6, 0.4, 1) forwards;
+}
+
+@keyframes sacode {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  25% {
+    transform: rotate(-12deg);
+  }
+  75% {
+    transform: rotate(12deg);
+  }
+}
+@keyframes acende {
+  0% {
+    transform: scale(0.94);
+  }
+  60% {
+    transform: scale(1.04);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+/* Cada peça recebe --dx, --dy e --giro inline. */
+@keyframes confete {
+  0% {
+    transform: translate(0, 0) rotate(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--dx), var(--dy)) rotate(var(--giro));
+    opacity: 0;
+  }
 }
 
 @keyframes varredura {
@@ -79,8 +117,14 @@
 @media (prefers-reduced-motion: reduce) {
   .animate-varredura,
   .animate-pulso,
-  .animate-spin {
+  .animate-spin,
+  .animate-sacode,
+  .animate-acende,
+  .animate-onda {
     animation: none;
+  }
+  .animate-confete {
+    display: none;
   }
 }
 

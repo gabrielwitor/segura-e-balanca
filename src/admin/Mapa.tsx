@@ -1,19 +1,46 @@
-import { useEffect, useMemo } from 'react';
-import { Circle, MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Circle, CircleMarker, MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { Ponto } from '@/dominio/tipos';
+import { Icone } from '@/ui/Icone';
 
 const CENTRO_PADRAO: [number, number] = [-23.5589, -46.7315];
+/** Acima disso o "criar aqui" fica bloqueado: o ponto nasceria fora do lugar. */
+const PRECISAO_MAX_CRIAR_M = 30;
+
+export interface MinhaPosicao {
+  lat: number;
+  lng: number;
+  accuracy: number;
+}
+
+/** Posição do admin em tempo real, enquanto o mapa estiver aberto. */
+function useMinhaPosicao(): MinhaPosicao | null {
+  const [pos, setPos] = useState<MinhaPosicao | null>(null);
+  useEffect(() => {
+    if (!('geolocation' in navigator)) return;
+    const id = navigator.geolocation.watchPosition(
+      (p) => setPos({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy }),
+      () => {},
+      { enableHighAccuracy: true, maximumAge: 3000, timeout: 20_000 },
+    );
+    return () => navigator.geolocation.clearWatch(id);
+  }, []);
+  return pos;
+}
 
 function icone(p: Ponto, selecionado: boolean): L.DivIcon {
-  const tam = selecionado ? 32 : 26;
-  const cor = !p.ativo ? '#9AA39C' : selecionado ? '#126B42' : '#18211C';
+  const tam = selecionado ? 34 : 28;
+  const fundo = !p.ativo ? '#FFFFFF' : selecionado ? '#126B42' : '#18211C';
+  const cor = p.ativo ? '#FFFFFF' : '#55615A';
+  const borda = !p.ativo ? 'border:2px dashed #7A847E;' : '';
+  const sombra = selecionado ? 'box-shadow:0 0 0 4px #fff,0 4px 12px rgba(0,0,0,.25);' : '';
   return L.divIcon({
     className: '',
     iconSize: [tam, tam],
     iconAnchor: [tam / 2, tam / 2],
-    html: `<div style="width:${tam}px;height:${tam}px;border-radius:50%;background:${cor};color:#fff;font:700 ${selecionado ? 13 : 12}px Inter,sans-serif;display:flex;align-items:center;justify-content:center;${selecionado ? 'box-shadow:0 0 0 4px #fff' : ''}">${p.numero}</div>`,
+    html: `<div style="box-sizing:border-box;width:${tam}px;height:${tam}px;border-radius:50%;background:${fundo};color:${cor};${borda}${sombra}font:700 ${selecionado ? 14 : 12}px Inter,sans-serif;display:flex;align-items:center;justify-content:center">${p.numero}</div>`,
   });
 }
 
@@ -22,15 +49,20 @@ function Cliques({ aoClicar }: { aoClicar: (lat: number, lng: number) => void })
   return null;
 }
 
-/** Enquadra os pontos uma vez, ao carregar. */
-function Enquadrar({ pontos }: { pontos: Ponto[] }) {
+/** Enquadra uma vez: nos pontos, ou na posição do admin se ainda não há pontos. */
+function Enquadrar({ pontos, minha }: { pontos: Ponto[]; minha: MinhaPosicao | null }) {
   const map = useMap();
-  const temPontos = pontos.length > 0;
+  const feito = useRef(false);
   useEffect(() => {
-    if (temPontos) map.fitBounds(L.latLngBounds(pontos.map((p) => [p.lat, p.lng])), { padding: [60, 60], maxZoom: 18 });
-    else navigator.geolocation?.getCurrentPosition((p) => map.setView([p.coords.latitude, p.coords.longitude], 17), () => {}, { timeout: 5000 });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [temPontos, map]);
+    if (feito.current) return;
+    if (pontos.length > 0) {
+      map.fitBounds(L.latLngBounds(pontos.map((p) => [p.lat, p.lng])), { padding: [60, 60], maxZoom: 18 });
+      feito.current = true;
+    } else if (minha) {
+      map.setView([minha.lat, minha.lng], 18);
+      feito.current = true;
+    }
+  }, [pontos, minha, map]);
   return null;
 }
 
@@ -43,6 +75,43 @@ function Redimensionar() {
     return () => ro.disconnect();
   }, [map]);
   return null;
+}
+
+/** Botões sobre o mapa: centralizar em mim e criar ponto onde estou. */
+function ControlesDePosicao({ minha, aoCriar }: { minha: MinhaPosicao | null; aoCriar: (lat: number, lng: number) => void }) {
+  const map = useMap();
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    // Toques nos botões não podem virar "clique no mapa" (que cria ponto).
+    if (ref.current) {
+      L.DomEvent.disableClickPropagation(ref.current);
+      L.DomEvent.disableScrollPropagation(ref.current);
+    }
+  }, []);
+  const precisao = minha ? Math.round(minha.accuracy) : null;
+  const fraco = precisao != null && precisao > PRECISAO_MAX_CRIAR_M;
+  return (
+    <div ref={ref} className="absolute right-3 bottom-3 z-[500] flex flex-col items-end gap-2">
+      <button
+        type="button"
+        aria-label="Centralizar em mim"
+        disabled={!minha}
+        onClick={() => minha && map.setView([minha.lat, minha.lng], Math.max(map.getZoom(), 18))}
+        className="flex size-11 items-center justify-center rounded-[10px] bg-white text-tinta shadow-md disabled:opacity-50"
+      >
+        <Icone nome="meuLocal" tamanho={22} />
+      </button>
+      <button
+        type="button"
+        disabled={!minha || fraco}
+        onClick={() => minha && aoCriar(minha.lat, minha.lng)}
+        className="flex h-11 items-center gap-2 rounded-[10px] bg-mata px-3.5 text-sm font-bold text-white shadow-md disabled:bg-white disabled:text-tinta-suave"
+      >
+        <Icone nome="criarAqui" tamanho={20} />
+        {!minha ? 'Buscando sua posição…' : fraco ? `GPS fraco · ±${precisao} m` : `Criar ponto aqui · ±${precisao} m`}
+      </button>
+    </div>
+  );
 }
 
 export function Mapa({
@@ -59,13 +128,20 @@ export function Mapa({
   aoMover: (id: string, lat: number, lng: number) => void;
 }) {
   const sel = useMemo(() => pontos.find((p) => p.id === selecionado), [pontos, selecionado]);
+  const minha = useMinhaPosicao();
   return (
     <MapContainer center={CENTRO_PADRAO} zoom={17} maxZoom={19} className="size-full" aria-label="Mapa dos pontos">
-      <TileLayer url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" maxZoom={19} attribution="Mapa: Leaflet + &copy; OpenStreetMap" />
+      <TileLayer url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" maxZoom={19} attribution="&copy; OpenStreetMap" />
       <Cliques aoClicar={aoCriar} />
-      <Enquadrar pontos={pontos} />
+      <Enquadrar pontos={pontos} minha={minha} />
       <Redimensionar />
-      {sel && <Circle center={[sel.lat, sel.lng]} radius={sel.raioM} pathOptions={{ color: '#126B42', weight: 2, fillOpacity: 0.16 }} />}
+      {sel && <Circle center={[sel.lat, sel.lng]} radius={sel.raioM} pathOptions={{ color: '#126B42', weight: 2, dashArray: '6 6', fillOpacity: 0.16 }} />}
+      {minha && (
+        <>
+          <Circle center={[minha.lat, minha.lng]} radius={minha.accuracy} interactive={false} pathOptions={{ color: '#2B6FD6', weight: 1, fillColor: '#2B6FD6', fillOpacity: 0.12 }} />
+          <CircleMarker center={[minha.lat, minha.lng]} radius={8} interactive={false} pathOptions={{ color: '#FFFFFF', weight: 3, fillColor: '#2B6FD6', fillOpacity: 1 }} />
+        </>
+      )}
       {pontos.map((p) => (
         <Marker
           key={p.id}
@@ -83,6 +159,7 @@ export function Mapa({
           }}
         />
       ))}
+      <ControlesDePosicao minha={minha} aoCriar={aoCriar} />
     </MapContainer>
   );
 }

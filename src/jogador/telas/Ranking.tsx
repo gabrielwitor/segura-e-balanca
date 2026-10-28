@@ -6,6 +6,7 @@ import { db } from '../servicos';
 import { nomeDaPista } from './Radar';
 import { Cabecalho } from './Cabecalho';
 import { Girando } from './Tela';
+import { AjustesFeedback } from './AjustesFeedback';
 
 interface Linha {
   uid: string;
@@ -92,10 +93,16 @@ export function Ranking({
 
       <MinhasBalancadas minhas={dados.minhas} dados={dados} />
 
-      <button type="button" onClick={abrirHistorico} className="mb-4 flex h-12 items-center justify-between rounded-2xl border border-borda px-4 text-left">
+      <button type="button" onClick={abrirHistorico} className="flex h-12 items-center justify-between rounded-2xl border border-borda px-4 text-left">
         <span>Partidas anteriores</span>
-        <span className="text-sm text-suave">{historico} · ver histórico</span>
+        <span className="flex items-center gap-1 text-sm text-suave">
+          {historico}
+          <Icone nome="avancar" tamanho={16} />
+        </span>
       </button>
+      <div className="mb-4">
+        <AjustesFeedback />
+      </div>
     </>
   );
 }

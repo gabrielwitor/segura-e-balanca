@@ -105,21 +105,28 @@ export function useBussola(ativo: boolean): number | null {
   return heading;
 }
 
-/** RF-22: escuta devicemotion só enquanto armado; chama `aoBalancar` quando o gesto completa. */
-export function useBalanco(armado: boolean, aoBalancar: () => void): void {
+/**
+ * RF-22: escuta devicemotion só enquanto armado. `aoProgresso` recebe quantas sacudidas valem
+ * agora (0–3) a cada mudança; `aoBalancar` dispara quando o gesto completa.
+ */
+export function useBalanco(armado: boolean, aoBalancar: () => void, aoProgresso?: (picos: number, novoPico: boolean) => void): void {
   const detector = useRef(new DetectorDeBalanco());
-  const cb = useRef(aoBalancar);
+  const cbs = useRef({ aoBalancar, aoProgresso });
   useEffect(() => {
-    cb.current = aoBalancar;
+    cbs.current = { aoBalancar, aoProgresso };
   });
   useEffect(() => {
     if (!armado) return;
     const d = detector.current;
     d.reiniciar();
+    let ultimo = 0;
     const f = (e: DeviceMotionEvent) => {
       const a = e.accelerationIncludingGravity;
       if (!a || a.x == null || a.y == null || a.z == null) return;
-      if (d.alimentar({ x: a.x, y: a.y, z: a.z, t: performance.now() })) cb.current();
+      const r = d.alimentar({ x: a.x, y: a.y, z: a.z, t: performance.now() });
+      if (r.novoPico || r.picos !== ultimo) cbs.current.aoProgresso?.(r.picos, r.novoPico);
+      ultimo = r.completo ? 0 : r.picos;
+      if (r.completo) cbs.current.aoBalancar();
     };
     window.addEventListener('devicemotion', f);
     return () => window.removeEventListener('devicemotion', f);

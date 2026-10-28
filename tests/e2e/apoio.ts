@@ -85,7 +85,7 @@ export async function balancar(page: Page) {
 }
 
 export async function voltarAoRadar(page: Page) {
-  await page.getByRole('button', { name: 'Voltar ao radar' }).click();
+  await page.getByRole('button', { name: /^(Próxima pista|Voltar ao radar)$/ }).click();
 }
 
 export async function escolherPista(page: Page, n: number) {

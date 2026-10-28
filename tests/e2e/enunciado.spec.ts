@@ -38,7 +38,7 @@ test('cair a rede, balançar, fechar e reabrir offline, voltar a rede', async ({
   await context.setOffline(true);
   await expect(conexao(page)).toContainText('Sem rede');
   await balancar(page);
-  await expect(page.getByTestId('balancou-status')).toHaveText('Pendente de sincronização');
+  await expect(page.getByTestId('balancou')).toContainText('Enviamos quando a internet voltar');
   await voltarAoRadar(page);
   await expect(conexao(page)).toContainText('1');
 

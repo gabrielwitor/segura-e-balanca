@@ -15,21 +15,27 @@ export class DetectorDeBalanco {
   private anterior: AmostraAceleracao | null = null;
   private picos: number[] = [];
 
-  /** Devolve true no instante em que o gesto se completa. */
-  alimentar(a: AmostraAceleracao): boolean {
+  /**
+   * Devolve o progresso depois desta amostra: quantos picos valem na janela, se esta amostra
+   * foi um pico novo (para o feedback de cada sacudida) e se o gesto se completou.
+   */
+  alimentar(a: AmostraAceleracao): { picos: number; novoPico: boolean; completo: boolean } {
     const ant = this.anterior;
     this.anterior = a;
-    if (!ant) return false;
+    // Picos antigos expiram mesmo sem sacudida nova: o progresso volta a zero se a pessoa parar.
+    this.picos = this.picos.filter((t) => a.t - t <= BALANCO_JANELA_MS);
+    const nada = { picos: this.picos.length, novoPico: false, completo: false };
+    if (!ant) return nada;
     const delta = Math.max(Math.abs(a.x - ant.x), Math.abs(a.y - ant.y), Math.abs(a.z - ant.z));
-    if (delta < BALANCO_LIMIAR_MS2) return false;
+    if (delta < BALANCO_LIMIAR_MS2) return nada;
     const ultimo = this.picos[this.picos.length - 1];
-    if (ultimo != null && a.t - ultimo < BALANCO_INTERVALO_MIN_MS) return false;
-    this.picos = [...this.picos.filter((t) => a.t - t <= BALANCO_JANELA_MS), a.t];
+    if (ultimo != null && a.t - ultimo < BALANCO_INTERVALO_MIN_MS) return nada;
+    this.picos = [...this.picos, a.t];
     if (this.picos.length >= BALANCO_PICOS) {
       this.reiniciar();
-      return true;
+      return { picos: BALANCO_PICOS, novoPico: true, completo: true };
     }
-    return false;
+    return { picos: this.picos.length, novoPico: true, completo: false };
   }
 
   reiniciar(): void {
