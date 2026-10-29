@@ -12,8 +12,13 @@ test('aba Pontos: escolher põe o ponto na bússola; voltar ao mais perto desfaz
   await expect(cartao).toContainText('Ponto 1');
   await expect(cartao).toContainText('vale 100 pts');
 
+  // Ponto 1 a ~100 m: dentro do alcance do mostrador (bola), sem borda acesa.
+  await expect(page.getByTestId('borda-acesa')).toHaveCount(0);
+
   await escolherPonto(page, 2);
   await expect(cartao).toContainText('Ponto 2');
+  // Ponto 2 a ~270 m: além dos 150 m do mostrador, a borda acende na direção dele.
+  await expect(page.getByTestId('borda-acesa')).toBeVisible();
   await cartao.getByRole('button', { name: /Voltar ao/ }).click();
   await expect(cartao).toContainText('Ponto 1');
 

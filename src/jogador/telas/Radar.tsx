@@ -366,11 +366,20 @@ const C = 150;
 /** Raio útil do mostrador (a borda tem as marcas de grau). */
 const R_UTIL = 136;
 
-/** Distância real -> raio no mostrador: quente até 44, morno até 100, frio até a borda (400 m+). */
-function raioNoMostrador(d: number): number {
-  if (d <= FAIXA_QUENTE_M) return 14 + (d / FAIXA_QUENTE_M) * 30;
-  if (d <= FAIXA_MORNO_M) return 44 + ((d - FAIXA_QUENTE_M) / (FAIXA_MORNO_M - FAIXA_QUENTE_M)) * 56;
-  return Math.min(R_UTIL, 100 + ((d - FAIXA_MORNO_M) / 250) * 36);
+/** Raio da borda acesa (o traço fica por dentro das marcas de grau). */
+const R_BORDA = 137;
+const VOLTA_BORDA = 2 * Math.PI * R_BORDA;
+/** Daqui para longe a borda acesa fica na abertura máxima. */
+const LONGE_M = 600;
+
+/**
+ * Ponto além do alcance do mostrador (150 m): um trecho aceso da borda na direção dele, que fecha
+ * conforme a pessoa se aproxima (44° a 600 m+) e engrossa até o tamanho da bola, onde vira a bola.
+ */
+function bordaAcesa(d: number) {
+  const t = Math.max(0, Math.min(1, (LONGE_M - d) / (LONGE_M - FAIXA_MORNO_M)));
+  const comprimento = ((44 * (1 - t)) / 360) * VOLTA_BORDA;
+  return { comprimento, largura: 6 + t * 10 };
 }
 
 const noCirculo = (graus: number, r: number) => {
@@ -393,13 +402,12 @@ function Mostrador({ alvo, heading, leitura, al }: { alvo: Alvo; heading: number
   const escala = R_UTIL / FAIXA_QUENTE_M;
   const temPonto = !!m && alvo.rumo != null;
   const rel = (alvo.rumo ?? 0) - giro;
-  const r = m ? (zoom ? Math.min(m.d * escala, R_UTIL) : raioNoMostrador(m.d)) : 0;
+  // Fora do zoom, o mostrador cobre até o fim do morno, em escala linear; além disso, a borda acesa.
+  const foraDoAlcance = !!m && !zoom && m.d > FAIXA_MORNO_M;
+  const r = m ? Math.min(m.d * (zoom ? escala : R_UTIL / FAIXA_MORNO_M), R_UTIL) : 0;
   const [x, y] = noCirculo(rel, r);
   const cor = alvo.conquistado ? '#6b8578' : al === 'dentro' ? COR_CHEGOU : COR_BLIP[m?.faixa ?? 'frio'];
-  const ponta = (d: number, rr: number) =>
-    noCirculo(rel + d, rr)
-      .map((n) => n.toFixed(1))
-      .join(' ');
+  const borda = foraDoAlcance ? bordaAcesa(m.d) : null;
   return (
     <div className="relative mx-auto aspect-square w-full max-w-[300px] shrink-0" data-testid="bussola">
       <svg viewBox="0 0 300 300" className="size-full" role="img" aria-label={`${nomeDoPonto(alvo.ponto)}${m ? `, ${m.faixa}` : ''}`}>
@@ -424,13 +432,24 @@ function Mostrador({ alvo, heading, leitura, al }: { alvo: Alvo; heading: number
         })}
         {temPonto && zoom && leitura && <circle cx={C} cy={C} r={Math.min(leitura.accuracy * escala, R_UTIL)} fill="rgba(232,242,236,.06)" />}
         {temPonto && zoom && <circle cx={x} cy={y} r={alvo.ponto.raioM * escala} clipPath="url(#mostrador)" fill={cor} fillOpacity="0.16" />}
-        {temPonto && (
-          <>
-            {/* Marcador na borda: a direção exata, legível de relance. */}
-            <path d={`M${ponta(0, 145)} L${ponta(-3.5, 131)} L${ponta(3.5, 131)} Z`} fill={cor} />
-            <circle cx={x} cy={y} r="8" fill={cor} />
-          </>
+        {temPonto && borda && (
+          <circle
+            cx={C}
+            cy={C}
+            r={R_BORDA}
+            fill="none"
+            stroke={cor}
+            strokeLinecap="round"
+            strokeWidth={borda.largura}
+            // A volta começa às 3 horas: girada para a direção do ponto, com o traço centrado nela.
+            strokeDasharray={`${borda.comprimento} ${VOLTA_BORDA}`}
+            strokeDashoffset={borda.comprimento / 2}
+            transform={`rotate(${rel - 90} ${C} ${C})`}
+            className="transition-[stroke-dasharray,stroke-dashoffset,stroke-width] duration-700"
+            data-testid="borda-acesa"
+          />
         )}
+        {temPonto && !borda && <circle cx={x} cy={y} r="8" fill={cor} />}
         {heading != null ? <path d="M150 139 L158 160 L150 155.5 L142 160 Z" className="fill-texto" /> : <circle cx={C} cy={C} r="6" className="fill-texto" />}
       </svg>
     </div>
