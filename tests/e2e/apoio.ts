@@ -25,8 +25,7 @@ export async function semear(): Promise<void> {
   await e.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore();
     const ponto = (numero: number, pos: { lat: number; lng: number }) => ({
-      numero, nome: `Ponto ${numero}`, ...pos, raioM: 25, valorBase: 100, passoPct: 0.1, pisoPct: 0.2,
-      dica: `Dica do ponto ${numero}`, ativo: true, desativadoEm: null,
+      numero, nome: `Ponto ${numero}`, ...pos, raioM: 25, valorBase: 100, passoPct: 0.1, pisoPct: 0.2, ativo: true, desativadoEm: null,
     });
     await setDoc(doc(db, 'config/jogo'), { partidaAtual: 'p1' });
     await setDoc(doc(db, 'partidas/p1'), { numero: 1, estado: 'ativa', criadaEm: Date.now(), finalizadaEm: null, pausas: [], rankingFinal: null });

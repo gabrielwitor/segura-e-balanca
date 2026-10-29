@@ -22,7 +22,6 @@ export function paraPonto(s: Snap): Ponto {
     valorBase: d.valorBase,
     passoPct: d.passoPct,
     pisoPct: d.pisoPct,
-    dica: d.dica ?? '',
     // Pontos criados antes do campo existir valem o padrão.
     sacudidas: Number.isInteger(d.sacudidas) ? Math.min(SACUDIDAS_MAX, Math.max(SACUDIDAS_MIN, d.sacudidas)) : SACUDIDAS_PADRAO,
     ativo: d.ativo !== false,

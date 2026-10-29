@@ -53,7 +53,7 @@ function Moldura({ children, passo, pular }: { children: ReactNode; passo?: numb
 const DICAS: { titulo: string; texto: string; ilustracao: () => ReactNode }[] = [
   { titulo: 'Siga a temperatura', texto: 'Frio, morno ou quente: vá esquentando.', ilustracao: Termometros },
   { titulo: 'Escolha um ponto', texto: 'Veja quanto cada um vale e toque para seguir.', ilustracao: Pontos },
-  { titulo: 'Segure e balance', texto: `Na área, segure o botão e balance ${SACUDIDAS_PADRAO} vezes.`, ilustracao: BotaoDeExemplo },
+  { titulo: 'Segure e balance', texto: `Na área, segure o botão e balance ${SACUDIDAS_PADRAO} vezes.`, ilustracao: DemonstracaoDoBalanco },
 ];
 
 function Dica({ n, aoPular, aoAvancar }: { n: number; aoPular: () => void; aoAvancar: () => void }) {
@@ -143,21 +143,101 @@ function Pontos() {
   );
 }
 
-function BotaoDeExemplo() {
+/** Fatias do anel da demonstração (raio 48, 4 partes com folga), em coordenadas de 120×120. */
+const FATIAS_DEMO = [0, 1, 2, 3].map((i) => {
+  const ponto = (g: number) => {
+    const a = ((g - 90) * Math.PI) / 180;
+    return `${(60 + 48 * Math.cos(a)).toFixed(1)} ${(60 + 48 * Math.sin(a)).toFixed(1)}`;
+  };
+  return `M ${ponto(i * 90 + 8)} A 48 48 0 0 1 ${ponto((i + 1) * 90 - 8)}`;
+});
+
+/** Mesmas frases da tela "Balançando", cada uma na janela do seu balanço (ver .efeito-demo-* no CSS). */
+const FRASES_DEMO = [
+  ['f1', 'Balance!'],
+  ['f2', 'Isso! De novo'],
+  ['f3', 'Mais uma!'],
+  ['f4', 'Balançou!'],
+] as const;
+const CONTAGEM_DEMO = ['c0', 'c1', 'c2', 'c3'] as const;
+
+/**
+ * Dica 3: um celular de demonstração. O dedo segura o botão, o aparelho balança de cima para baixo
+ * e o anel do jogo enche. Com movimento reduzido, fica parado em "2 de 4".
+ */
+function DemonstracaoDoBalanco() {
   return (
-    <>
-      <div className="flex justify-center">
-        <div className="flex size-[200px] items-center justify-center">
-          <span className="flex size-24 animate-sacode items-center justify-center rounded-[28px] bg-painel text-verde">
-            <Icone nome="balancar" tamanho={52} />
-          </span>
+    <div className="flex justify-center">
+      <div className="efeito-demo-caixa">
+        <div className="efeito-demo-sombra" />
+        <div className="efeito-demo-escala">
+          <div className="efeito-demo-aparelho">
+            {[
+              'top-[70px] -left-0.5 h-[22px]',
+              'top-[104px] -left-0.5 h-10',
+              'top-[152px] -left-0.5 h-10',
+              'top-[116px] -right-0.5 h-[58px]',
+            ].map((pos) => (
+              <span key={pos} className={`absolute w-[3px] rounded-sm bg-[#3a433e] ${pos}`} />
+            ))}
+            <div
+              className="relative size-full rounded-[34px] p-[5px] shadow-[0_0_0_1px_#0b1410,inset_0_0_0_1px_rgba(255,255,255,0.12)]"
+              style={{ background: 'linear-gradient(145deg, #5b6660, #2a312d 40%, #4a544f)' }}
+            >
+              <div className="relative size-full overflow-hidden rounded-[29px] bg-radar shadow-[0_0_0_3px_#050807]">
+                <span className="absolute top-2.5 left-1/2 z-10 -ml-[29px] h-[17px] w-[58px] rounded-[10px] bg-black" />
+                <svg viewBox="0 0 100 100" className="efeito-demo-radar absolute top-11 left-1/2 -ml-[52px] size-[104px]">
+                  <circle cx="50" cy="50" r="47" className="fill-noite stroke-borda" strokeWidth="2" />
+                  <circle cx="62" cy="40" r="10" className="fill-verde" fillOpacity="0.18" />
+                  <circle cx="62" cy="40" r="4" className="fill-verde" />
+                  <path d="M50 44 L54 55 L50 53 L46 55 Z" className="fill-texto" />
+                </svg>
+                <div className="efeito-demo-anel absolute inset-x-0 top-11 flex flex-col items-center gap-2.5">
+                  <div className="relative size-[120px]">
+                    <svg viewBox="0 0 120 120" className="size-full">
+                      {FATIAS_DEMO.map((d) => (
+                        <path key={d} d={d} fill="none" strokeWidth="10" strokeLinecap="round" className="stroke-[#1F3329]" />
+                      ))}
+                      <g>
+                        {FATIAS_DEMO.map((d) => (
+                          <path key={d} d={d} fill="none" strokeWidth="10" strokeLinecap="round" className="efeito-demo-fatia stroke-verde" />
+                        ))}
+                      </g>
+                    </svg>
+                    <span className="efeito-demo-icone absolute inset-0 flex items-center justify-center text-verde">
+                      <Icone nome="balancar" tamanho={36} />
+                    </span>
+                    <span className="efeito-demo-ok absolute inset-0 flex items-center justify-center text-verde">
+                      <Icone nome="check" tamanho={40} strokeWidth={2.4} />
+                    </span>
+                  </div>
+                  <div className="relative h-[26px] w-[150px] font-display text-xl leading-[26px] font-bold">
+                    {FRASES_DEMO.map(([k, texto]) => (
+                      <span key={k} className={`efeito-demo-frase efeito-demo-${k} ${k === 'f2' ? 'fixa' : ''}`}>
+                        {texto}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="relative -mt-1.5 h-[18px] w-[150px] text-[13px] leading-[18px] font-semibold text-[#C6D6CD]">
+                    {CONTAGEM_DEMO.map((k, i) => (
+                      <span key={k} className={`efeito-demo-frase efeito-demo-${k} ${k === 'c2' ? 'fixa' : ''}`}>
+                        {i} de {SACUDIDAS_PADRAO}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div className="efeito-demo-botao absolute inset-x-3.5 bottom-4 flex h-10 items-center justify-center rounded-xl font-display text-xs font-bold text-verde-tinta">
+                  Segura e balança!
+                </div>
+              </div>
+            </div>
+            <span className="efeito-demo-dedo absolute top-[297px] left-14 text-texto">
+              <Icone nome="toque" tamanho={76} strokeWidth={1.4} />
+            </span>
+          </div>
         </div>
       </div>
-      <div className="mt-3 flex h-[72px] flex-col items-center justify-center rounded-[18px] bg-verde text-verde-tinta shadow-[0_0_0_6px_rgba(67,224,138,0.2)]">
-        <span className="font-display text-[23px] font-bold">Segura e balança!</span>
-        <span className="text-[13px] font-semibold opacity-85">segure o botão e balance</span>
-      </div>
-    </>
+    </div>
   );
 }
 

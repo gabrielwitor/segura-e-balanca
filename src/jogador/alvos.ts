@@ -6,7 +6,8 @@ import type { PontoLocal } from '@/sync/db';
 import { pontoConquistado, useAgora, type DadosDoJogo } from './dados';
 import { useBussola, usePosicao, type EstadoGps, type Leitura } from './sensores';
 
-export const nomeDoPonto = (p: Pick<PontoLocal, 'numero'>) => `Ponto ${p.numero}`;
+/** O nome que o admin deu; sem nome, "Ponto N". */
+export const nomeDoPonto = (p: Pick<PontoLocal, 'numero' | 'nome'>) => p.nome.trim() || `Ponto ${p.numero}`;
 
 export interface Medida {
   d: number;

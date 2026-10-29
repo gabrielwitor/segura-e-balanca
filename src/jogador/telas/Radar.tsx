@@ -133,7 +133,7 @@ export function Radar({ uid, apelido, dados, sessao, irParaRanking, radar, alvoI
           )}
           {alvo && (
             <>
-              <Mostrador alvo={alvo} heading={heading} leitura={leitura} />
+              <Mostrador alvo={alvo} heading={heading} leitura={leitura} al={al} />
               <CartaoAlvo alvo={alvo} escolhido={!!escolhido} trocar={irParaPontos} voltarAoMaisPerto={() => setAlvoId(null)} />
             </>
           )}
@@ -246,37 +246,50 @@ function useFeedbackDoRadar(alvo: Alvo | undefined, al: Alcance | null, jogavel:
 
 const NIVEL_TERMOMETRO: Record<string, number> = { frio: 1, morno: 3, quente: 4, chegou: 5 };
 
+/** Cor do texto (e das barras) de cada estado: a única cor do banner. */
+const TOM = {
+  frio: { texto: 'text-frio-texto', barra: 'bg-frio-texto' },
+  morno: { texto: 'text-morno-texto', barra: 'bg-morno-texto' },
+  quente: { texto: 'text-quente', barra: 'bg-quente' },
+  chegou: { texto: 'text-verde', barra: 'bg-verde' },
+  neutro: { texto: 'text-texto', barra: 'bg-suave' },
+};
+
+const ANIM_ICONE = { fogo: 'efeito-chama', termometro: 'efeito-respira', neve: 'efeito-gira', check: undefined };
+
 function Banner({ alvo, leitura, al, mudanca }: { alvo: Alvo; leitura: Leitura | null; al: Alcance | null; mudanca: Transicoes['mudanca'] }) {
   const m = alvo.medida;
-  let v: { titulo: string; sub: string; cls: string; nivel: number; barra: string; icone?: 'fogo' | 'termometro' | 'neve' };
-  if (alvo.conquistado) v = { titulo: 'Conquistado', sub: 'Escolha outro ponto', cls: 'bg-apagado text-texto', nivel: 0, barra: 'bg-texto' };
-  else if (!m || !leitura) v = { titulo: 'Procurando você…', sub: 'Aguardando o GPS', cls: 'bg-painel text-suave border border-borda', nivel: 0, barra: 'bg-suave' };
-  else if (al === 'dentro') v = { titulo: 'Você chegou!', sub: 'Pode balançar', cls: 'bg-verde text-verde-tinta', nivel: NIVEL_TERMOMETRO.chegou!, barra: 'bg-verde-tinta' };
-  else if (al === 'gps-impreciso')
-    v = { titulo: 'Quase lá', sub: 'GPS fraco · vá para céu aberto', cls: 'bg-quente text-quente-tinta', nivel: NIVEL_TERMOMETRO.quente!, barra: 'bg-quente-tinta', icone: 'fogo' };
-  else if (m.faixa === 'quente')
-    v = { titulo: 'Quente!', sub: 'Bem perto', cls: 'bg-quente text-quente-tinta', nivel: NIVEL_TERMOMETRO.quente!, barra: 'bg-quente-tinta', icone: 'fogo' };
-  else if (m.faixa === 'morno')
-    v = { titulo: 'Morno', sub: TEXTO_TENDENCIA[m.tendencia], cls: 'bg-morno text-morno-texto', nivel: NIVEL_TERMOMETRO.morno!, barra: 'bg-morno-texto', icone: 'termometro' };
-  else v = { titulo: 'Frio', sub: TEXTO_TENDENCIA[m.tendencia], cls: 'bg-frio text-frio-texto', nivel: NIVEL_TERMOMETRO.frio!, barra: 'bg-frio-texto', icone: 'neve' };
+  let v: { titulo: string; sub: string; tom: keyof typeof TOM; nivel: number; icone: 'fogo' | 'termometro' | 'neve' | 'check' | null };
+  if (alvo.conquistado) v = { titulo: 'Conquistado', sub: 'Escolha outro ponto', tom: 'neutro', nivel: 0, icone: 'check' };
+  else if (!m || !leitura) v = { titulo: 'Procurando você…', sub: 'Aguardando o GPS', tom: 'neutro', nivel: 0, icone: null };
+  else if (al === 'dentro') v = { titulo: 'Você chegou!', sub: 'Pode balançar', tom: 'chegou', nivel: NIVEL_TERMOMETRO.chegou!, icone: 'check' };
+  else if (al === 'gps-impreciso') v = { titulo: 'Quase lá', sub: 'GPS fraco · vá para céu aberto', tom: 'quente', nivel: NIVEL_TERMOMETRO.quente!, icone: 'fogo' };
+  else if (m.faixa === 'quente') v = { titulo: 'Quente!', sub: 'Bem perto', tom: 'quente', nivel: NIVEL_TERMOMETRO.quente!, icone: 'fogo' };
+  else if (m.faixa === 'morno') v = { titulo: 'Morno', sub: TEXTO_TENDENCIA[m.tendencia], tom: 'morno', nivel: NIVEL_TERMOMETRO.morno!, icone: 'termometro' };
+  else v = { titulo: 'Frio', sub: TEXTO_TENDENCIA[m.tendencia], tom: 'frio', nivel: NIVEL_TERMOMETRO.frio!, icone: 'neve' };
+  const tom = TOM[v.tom];
 
   return (
     <div
       // Remonta a cada mudança de faixa: o banner vira e o ícone novo entra com um pulo.
       key={mudanca?.n ?? 0}
-      className={`relative flex items-center gap-4 rounded-[18px] px-4 py-3.5 ${v.cls} ${mudanca ? 'efeito-vira' : ''}`}
+      className={`flex items-center gap-3.5 rounded-[18px] border border-borda bg-painel px-4 py-3.5 ${mudanca ? 'efeito-vira' : ''}`}
       role="status"
       aria-live="polite"
       data-testid="temperatura"
     >
-      {v.icone && <IconeDeFaixa icone={v.icone} entrando={!!mudanca} />}
-      <div className="flex grow flex-col gap-1">
-        <div className="font-display text-[28px] leading-none font-bold">{v.titulo}</div>
-        <div className="text-[15px] font-semibold">{v.sub}</div>
+      {v.icone && (
+        <span className={`flex shrink-0 ${tom.texto} ${mudanca ? 'efeito-entra-icone' : ''}`} aria-hidden="true">
+          <Icone nome={v.icone} tamanho={28} className={ANIM_ICONE[v.icone]} />
+        </span>
+      )}
+      <div className="flex grow flex-col gap-0.5">
+        <div className={`font-display text-[26px] leading-7 font-bold ${tom.texto}`}>{v.titulo}</div>
+        <div className="text-sm font-semibold text-suave">{v.sub}</div>
       </div>
-      <div className="flex h-10 items-end gap-1" aria-hidden="true">
+      <div className="flex items-end gap-1" aria-hidden="true">
         {[1, 2, 3, 4, 5].map((i) => (
-          <span key={i} className={`w-2 rounded-[3px] ${i <= v.nivel ? v.barra : 'bg-fraco/35'}`} style={{ height: 12 + i * 5 }} />
+          <span key={i} className={`w-1.5 rounded-[2px] ${i <= v.nivel ? tom.barra : 'bg-borda'}`} style={{ height: 10 + i * 4 }} />
         ))}
       </div>
     </div>
@@ -366,13 +379,14 @@ const noCirculo = (graus: number, r: number) => {
 };
 
 const COR_BLIP: Record<Faixa, string> = { frio: '#bbd4ff', morno: '#ffd98a', quente: '#ff7a45' };
+const COR_CHEGOU = '#43e08a';
 
 /**
  * Bússola com um ponto só: direção exata (graus, não setor) e distância real no mostrador.
  * No quente, zoom: o mostrador inteiro vira os últimos 50 m, com a área do ponto e a precisão do GPS.
  * Sem bússola, o mostrador fica com o norte para cima.
  */
-function Mostrador({ alvo, heading, leitura }: { alvo: Alvo; heading: number | null; leitura: Leitura | null }) {
+function Mostrador({ alvo, heading, leitura, al }: { alvo: Alvo; heading: number | null; leitura: Leitura | null; al: Alcance | null }) {
   const giro = heading ?? 0;
   const m = alvo.medida;
   const zoom = m?.faixa === 'quente' && !alvo.conquistado;
@@ -381,7 +395,7 @@ function Mostrador({ alvo, heading, leitura }: { alvo: Alvo; heading: number | n
   const rel = (alvo.rumo ?? 0) - giro;
   const r = m ? (zoom ? Math.min(m.d * escala, R_UTIL) : raioNoMostrador(m.d)) : 0;
   const [x, y] = noCirculo(rel, r);
-  const cor = alvo.conquistado ? '#6b8578' : COR_BLIP[m?.faixa ?? 'frio'];
+  const cor = alvo.conquistado ? '#6b8578' : al === 'dentro' ? COR_CHEGOU : COR_BLIP[m?.faixa ?? 'frio'];
   const ponta = (d: number, rr: number) =>
     noCirculo(rel + d, rr)
       .map((n) => n.toFixed(1))
@@ -394,100 +408,55 @@ function Mostrador({ alvo, heading, leitura }: { alvo: Alvo; heading: number | n
             <circle cx={C} cy={C} r="145" />
           </clipPath>
         </defs>
-        <circle cx={C} cy={C} r="146" className="fill-radar stroke-borda" strokeWidth="2" />
-        {zoom ? (
-          <>
-            <circle cx={C} cy={C} r={R_UTIL} fill="rgba(255,122,69,.07)" />
-            <circle cx={C} cy={C} r="91" fill="none" stroke="#5a2e1a" strokeWidth="1.5" strokeDasharray="4 6" />
-            <circle cx={C} cy={C} r="45" fill="none" stroke="#5a2e1a" strokeWidth="1.5" strokeDasharray="4 6" />
-          </>
-        ) : (
-          <>
-            <circle cx={C} cy={C} r="100" fill="rgba(255,217,138,.06)" stroke="#3a2e10" strokeWidth="1.5" strokeDasharray="4 6" />
-            <circle cx={C} cy={C} r="44" fill="rgba(255,122,69,.10)" stroke="#5a2e1a" strokeWidth="1.5" strokeDasharray="4 6" />
-          </>
-        )}
-        {Array.from({ length: 36 }, (_, i) => {
-          const longa = i % 3 === 0;
-          const [x1, y1] = noCirculo(i * 10 - giro, 146);
-          const [x2, y2] = noCirculo(i * 10 - giro, longa ? 134 : 140);
-          return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={longa ? '#4a6356' : '#2c3d34'} strokeWidth={longa ? 2 : 1.2} />;
+        <circle cx={C} cy={C} r="146" className="fill-radar stroke-borda" strokeWidth="1.5" />
+        {Array.from({ length: 12 }, (_, i) => {
+          const [x1, y1] = noCirculo(i * 30 - giro, 146);
+          const [x2, y2] = noCirculo(i * 30 - giro, 138);
+          return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} className="stroke-apagado" strokeWidth="1.5" />;
         })}
         {(['N', 'L', 'S', 'O'] as const).map((letra, i) => {
-          const [lx, ly] = noCirculo(i * 90 - giro, 120);
+          const [lx, ly] = noCirculo(i * 90 - giro, 122);
           return (
-            <text key={letra} x={lx} y={ly + 5} textAnchor="middle" fontSize="14" fontWeight="700" className="fill-suave">
+            <text key={letra} x={lx} y={ly + 5} textAnchor="middle" fontSize="13" fontWeight="700" className={letra === 'N' ? 'fill-texto' : 'fill-fraco'}>
               {letra}
             </text>
           );
         })}
-        <g className="animate-varredura" style={{ transformOrigin: '150px 150px', animationDuration: zoom ? '1.5s' : undefined }}>
-          <path d="M150 150 L150 4 A146 146 0 0 1 253.2 46.8 Z" className="fill-verde" opacity="0.08" />
-        </g>
-        {temPonto && zoom && leitura && (
-          <circle cx={C} cy={C} r={Math.min(leitura.accuracy * escala, R_UTIL)} fill="rgba(232,242,236,.10)" stroke="rgba(232,242,236,.25)" />
-        )}
-        {temPonto && zoom && (
-          <circle
-            cx={x}
-            cy={y}
-            r={alvo.ponto.raioM * escala}
-            clipPath="url(#mostrador)"
-            fill="rgba(67,224,138,.10)"
-            stroke="#43e08a"
-            strokeWidth="2"
-            strokeDasharray="5 5"
-          />
-        )}
+        {temPonto && zoom && leitura && <circle cx={C} cy={C} r={Math.min(leitura.accuracy * escala, R_UTIL)} fill="rgba(232,242,236,.06)" />}
+        {temPonto && zoom && <circle cx={x} cy={y} r={alvo.ponto.raioM * escala} clipPath="url(#mostrador)" fill={cor} fillOpacity="0.16" />}
         {temPonto && (
           <>
-            <line x1={C} y1={C} x2={x} y2={y} stroke={cor} strokeWidth={zoom ? 2.5 : 2} strokeDasharray="3 5" opacity="0.85" />
             {/* Marcador na borda: a direção exata, legível de relance. */}
-            <path d={`M${ponta(0, 146)} L${ponta(-4, 128)} L${ponta(4, 128)} Z`} fill={cor} />
+            <path d={`M${ponta(0, 145)} L${ponta(-3.5, 131)} L${ponta(3.5, 131)} Z`} fill={cor} />
+            <circle cx={x} cy={y} r="8" fill={cor} />
           </>
         )}
-        {heading != null ? <path d="M150 137 L159 161 L150 156 L141 161 Z" className="fill-verde" /> : <circle cx={C} cy={C} r="7" className="fill-verde" />}
+        {heading != null ? <path d="M150 139 L158 160 L150 155.5 L142 160 Z" className="fill-texto" /> : <circle cx={C} cy={C} r="6" className="fill-texto" />}
       </svg>
-      {temPonto && (
-        <span
-          className="efeito-alvo pointer-events-none absolute -mt-[13px] -ml-[13px] flex size-[26px] items-center justify-center rounded-full text-noite"
-          style={{ left: `${(x / 300) * 100}%`, top: `${(y / 300) * 100}%`, background: cor, boxShadow: `0 0 0 5px rgba(255,255,255,.12), 0 0 18px ${cor}` }}
-          aria-hidden="true"
-        >
-          {alvo.conquistado && <Icone nome="check" tamanho={14} strokeWidth={2.6} />}
-        </span>
-      )}
     </div>
   );
 }
 
-/** Ponto na bússola: nome, valor e a pista (a dica do ponto). */
+/** Ponto na bússola: nome e valor. */
 function CartaoAlvo({ alvo, escolhido, trocar, voltarAoMaisPerto }: { alvo: Alvo; escolhido: boolean; trocar: () => void; voltarAoMaisPerto: () => void }) {
-  const faixa = alvo.medida?.faixa;
   return (
-    <section className="flex flex-col gap-2.5 rounded-2xl border border-borda bg-painel px-3.5 py-3" aria-label="Ponto na bússola">
-      <div className="flex items-center gap-3">
-        <span className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${faixa && !alvo.conquistado ? COR_FAIXA[faixa] : 'bg-apagado text-texto'}`}>
-          <Icone nome={alvo.conquistado ? 'check' : faixa ? ICONE_FAIXA[faixa] : 'local'} tamanho={22} />
-        </span>
-        <div className="flex grow flex-col">
-          <h2 className="m-0 text-[17px] font-bold">{nomeDoPonto(alvo.ponto)}</h2>
-          <span className="text-[13px] text-suave">{valorDoPonto(alvo)}</span>
-        </div>
-        {escolhido ? (
-          <button type="button" onClick={voltarAoMaisPerto} className="min-h-11 shrink-0 px-1 text-right text-sm leading-tight font-semibold text-suave">
-            Voltar ao
-            <br />
-            mais perto
-          </button>
-        ) : (
-          <button type="button" onClick={trocar} className="flex min-h-11 shrink-0 items-center gap-1 px-1 text-sm font-semibold text-suave">
-            Trocar
-            <Icone nome="avancar" tamanho={16} />
-          </button>
-        )}
+    <section className="flex items-center gap-3 rounded-2xl border border-borda bg-painel px-3.5 py-3" aria-label="Ponto na bússola">
+      <div className="flex grow flex-col">
+        <h2 className="m-0 text-[17px] font-bold">{nomeDoPonto(alvo.ponto)}</h2>
+        <span className="text-[13px] text-suave">{valorDoPonto(alvo)}</span>
       </div>
-      {alvo.ponto.dica && <p className="m-0 border-t border-borda pt-2.5 text-[15px] leading-snug">{alvo.ponto.dica}</p>}
+      {escolhido ? (
+        <button type="button" onClick={voltarAoMaisPerto} className="min-h-11 shrink-0 px-1 text-right text-sm leading-tight font-semibold text-suave">
+          Voltar ao
+          <br />
+          mais perto
+        </button>
+      ) : (
+        <button type="button" onClick={trocar} className="flex min-h-11 shrink-0 items-center gap-1 px-1 text-sm font-semibold text-suave">
+          Trocar
+          <Icone nome="avancar" tamanho={16} />
+        </button>
+      )}
     </section>
   );
 }
@@ -709,7 +678,7 @@ function BotaoBalancar({
         type="button"
         disabled
         data-testid="balancar"
-        className="mb-4 h-[72px] shrink-0 rounded-[18px] border-2 border-dashed border-apagado font-display text-lg font-semibold text-suave"
+        className="mb-4 h-[72px] shrink-0 rounded-[18px] bg-painel text-base font-semibold text-suave"
       >
         {texto}
       </button>

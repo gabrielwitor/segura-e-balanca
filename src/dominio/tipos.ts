@@ -12,7 +12,6 @@ export const PontoSchema = z.object({
   passoPct: z.number().min(0).max(1),
   /** Fração mínima do valor-base. */
   pisoPct: z.number().min(0).max(1),
-  dica: z.string().default(''),
   /** Sacudidas exigidas para balançar neste ponto (configurável pelo admin; padrão 4). */
   sacudidas: z.number().int().min(2).max(100),
   ativo: z.boolean(),

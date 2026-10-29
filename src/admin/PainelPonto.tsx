@@ -41,7 +41,6 @@ export function EditorPonto({
       await salvarPonto(ponto.id, {
         nome: f.nome.trim() || `Ponto ${ponto.numero}`,
         raioM: num(f.raio),
-        dica: f.dica.trim(),
         sacudidas: num(f.sacudidas),
         ...regra,
       });
@@ -69,7 +68,7 @@ export function EditorPonto({
           void salvar();
         }}
       >
-        <Campo id="nome" rotulo="Nome (só o admin vê)" value={f.nome} onChange={(e) => setF({ ...f, nome: e.target.value })} />
+        <Campo id="nome" rotulo="Nome" value={f.nome} onChange={(e) => setF({ ...f, nome: e.target.value })} />
         <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-5">
           <Campo id="vb" rotulo="Valor-base" inputMode="numeric" value={f.valorBase} onChange={(e) => setF({ ...f, valorBase: e.target.value })} />
           <Campo id="ps" rotulo="Passo %" inputMode="decimal" value={f.passo} onChange={(e) => setF({ ...f, passo: e.target.value })} />
@@ -90,7 +89,6 @@ export function EditorPonto({
             Balanços: de {SACUDIDAS_MIN} a {SACUDIDAS_MAX}.
           </p>
         )}
-        <Campo id="dc" rotulo="Dica (opcional)" value={f.dica} onChange={(e) => setF({ ...f, dica: e.target.value })} />
         {regra && (
           <p className="m-0 text-[13px] text-tinta-suave">
             Próxima balançada vale <strong className="text-tinta">{pontosDaPosicao(regra, proximaPos)} pts</strong> ({proximaPos}º) · tabela:{' '}
@@ -156,7 +154,6 @@ function paraForm(p: Ponto) {
     piso: String(Math.round(p.pisoPct * 1000) / 10),
     raio: String(p.raioM),
     sacudidas: String(p.sacudidas),
-    dica: p.dica,
   };
 }
 

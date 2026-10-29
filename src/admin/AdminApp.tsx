@@ -632,7 +632,7 @@ function PrimeiroUso() {
       </div>
       <ol className="m-0 flex list-none flex-col gap-3 p-0">
         {[
-          ['Crie os pontos no mapa', 'Valor-base, passo, piso, raio e uma dica. Prefira áreas abertas: dentro de prédios o GPS dos celulares erra mais.'],
+          ['Crie os pontos no mapa', 'Valor-base, passo, piso, raio e um nome. Prefira áreas abertas: dentro de prédios o GPS dos celulares erra mais.'],
           ['Teste um ponto no local', 'Abra o app de jogador no celular e confira se o raio libera.'],
           ['Abra a partida', 'Os jogadores precisam entrar online uma vez para baixar os pontos.'],
         ].map(([t, d], i) => (
