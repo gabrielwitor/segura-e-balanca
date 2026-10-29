@@ -12,6 +12,8 @@ test('dicas em tela cheia levam ao treino, e balançar no treino libera o jogo',
   await page.getByRole('button', { name: 'Próxima' }).click();
   await expect(page.getByRole('heading', { name: 'Escolha um ponto' })).toBeVisible();
   await page.getByRole('button', { name: 'Próxima' }).click();
+  await expect(page.getByRole('heading', { name: 'Chegue até o ponto' })).toBeVisible();
+  await page.getByRole('button', { name: 'Próxima' }).click();
   await expect(page.getByRole('heading', { name: 'Segure e balance' })).toBeVisible();
   await page.getByRole('button', { name: 'Experimentar' }).click();
 
@@ -39,7 +41,7 @@ test('dicas em tela cheia levam ao treino, e balançar no treino libera o jogo',
 
 test('sem sensor de movimento, o treino não prende', async ({ page }) => {
   await entrarNoJogo(page, 'semsensor', 'Sem Sensor', { dicas: 'manter' });
-  for (const passo of ['Próxima', 'Próxima', 'Experimentar']) await page.getByRole('button', { name: passo }).click();
+  for (const passo of ['Próxima', 'Próxima', 'Próxima', 'Experimentar']) await page.getByRole('button', { name: passo }).click();
   // Segura e nada chega do acelerômetro.
   await page.getByTestId('treinar').dispatchEvent('pointerdown');
   await expect(page.getByRole('heading', { name: 'Sem sensor de movimento' })).toBeVisible({ timeout: 5000 });

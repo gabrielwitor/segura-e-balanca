@@ -257,7 +257,8 @@ const TOM = {
 
 const ANIM_ICONE = { fogo: 'efeito-chama', termometro: 'efeito-respira', neve: 'efeito-gira', check: undefined };
 
-function Banner({ alvo, leitura, al, mudanca }: { alvo: Alvo; leitura: Leitura | null; al: Alcance | null; mudanca: Transicoes['mudanca'] }) {
+/** `demo`: dentro da demonstração do onboarding (sem região viva nem testid). */
+export function Banner({ alvo, leitura, al, mudanca, demo }: { alvo: Alvo; leitura: Leitura | null; al: Alcance | null; mudanca: Transicoes['mudanca']; demo?: boolean }) {
   const m = alvo.medida;
   let v: { titulo: string; sub: string; tom: keyof typeof TOM; nivel: number; icone: 'fogo' | 'termometro' | 'neve' | 'check' | null };
   if (alvo.conquistado) v = { titulo: 'Conquistado', sub: 'Escolha outro ponto', tom: 'neutro', nivel: 0, icone: 'check' };
@@ -274,9 +275,9 @@ function Banner({ alvo, leitura, al, mudanca }: { alvo: Alvo; leitura: Leitura |
       // Remonta a cada mudança de faixa: o banner vira e o ícone novo entra com um pulo.
       key={mudanca?.n ?? 0}
       className={`flex items-center gap-3.5 rounded-[18px] border border-borda bg-painel px-4 py-3.5 ${mudanca ? 'efeito-vira' : ''}`}
-      role="status"
-      aria-live="polite"
-      data-testid="temperatura"
+      role={demo ? undefined : 'status'}
+      aria-live={demo ? undefined : 'polite'}
+      data-testid={demo ? undefined : 'temperatura'}
     >
       {v.icone && (
         <span className={`flex shrink-0 ${tom.texto} ${mudanca ? 'efeito-entra-icone' : ''}`} aria-hidden="true">
@@ -293,42 +294,6 @@ function Banner({ alvo, leitura, al, mudanca }: { alvo: Alvo; leitura: Leitura |
         ))}
       </div>
     </div>
-  );
-}
-
-/** Fogo tremula e solta faíscas, termômetro balança, floco gira. */
-export function IconeDeFaixa({ icone, entrando }: { icone: 'fogo' | 'termometro' | 'neve'; entrando: boolean }) {
-  const caixa = { fogo: 'efeito-brasa', termometro: '', neve: 'efeito-brilho-frio' }[icone];
-  const anim = { fogo: 'efeito-chama', termometro: 'efeito-respira', neve: 'efeito-gira' }[icone];
-  return (
-    <span className={`relative flex size-[52px] shrink-0 items-center justify-center rounded-[14px] bg-white/12 ${caixa}`} aria-hidden="true">
-      <span className={`flex ${entrando ? 'efeito-entra-icone' : ''}`}>
-        <Icone nome={icone} tamanho={32} className={anim} />
-      </span>
-      {icone === 'fogo' && <Faiscas />}
-    </span>
-  );
-}
-
-const FAISCAS = [
-  { x: 12, dx: -10, dy: -52, atraso: 0 },
-  { x: 24, dx: 6, dy: -64, atraso: 0.3 },
-  { x: 34, dx: 12, dy: -48, atraso: 0.7 },
-  { x: 18, dx: -4, dy: -70, atraso: 1 },
-  { x: 40, dx: 14, dy: -58, atraso: 1.3 },
-];
-
-function Faiscas() {
-  return (
-    <>
-      {FAISCAS.map((f, i) => (
-        <span
-          key={i}
-          className="efeito-faisca pointer-events-none absolute top-3 block size-1.5 rounded-full bg-morno-texto opacity-0"
-          style={{ left: f.x, '--dx': `${f.dx}px`, '--dy': `${f.dy}px`, animationDelay: `${f.atraso}s` } as React.CSSProperties}
-        />
-      ))}
-    </>
   );
 }
 
@@ -401,7 +366,7 @@ const COR_CHEGOU = '#43e08a';
  * No quente, aparece a área do ponto; a escala é contínua (raiz quadrada), sem zoom em degrau.
  * Sem bússola, o mostrador fica com o norte para cima.
  */
-function Mostrador({ alvo, heading, al }: { alvo: Alvo; heading: number | null; al: Alcance | null }) {
+export function Mostrador({ alvo, heading, al, demo }: { alvo: Alvo; heading: number | null; al: Alcance | null; demo?: boolean }) {
   const giro = heading ?? 0;
   const m = alvo.medida;
   const quente = m?.faixa === 'quente' && !alvo.conquistado;
@@ -414,10 +379,10 @@ function Mostrador({ alvo, heading, al }: { alvo: Alvo; heading: number | null; 
   const cor = alvo.conquistado ? '#6b8578' : al === 'dentro' ? COR_CHEGOU : COR_BLIP[m?.faixa ?? 'frio'];
   const borda = foraDoAlcance ? bordaAcesa(m.d) : null;
   return (
-    <div className="relative mx-auto aspect-square w-full max-w-[300px] shrink-0" data-testid="bussola">
+    <div className="relative mx-auto aspect-square w-full max-w-[300px] shrink-0" data-testid={demo ? undefined : 'bussola'}>
       <svg viewBox="0 0 300 300" className="size-full" role="img" aria-label={`${nomeDoPonto(alvo.ponto)}${m ? `, ${m.faixa}` : ''}`}>
         <defs>
-          <clipPath id="mostrador">
+          <clipPath id={demo ? 'mostrador-demo' : 'mostrador'}>
             <circle cx={C} cy={C} r="145" />
           </clipPath>
         </defs>
@@ -437,7 +402,7 @@ function Mostrador({ alvo, heading, al }: { alvo: Alvo; heading: number | null; 
         })}
         {/* Área do ponto: encosta na seta exatamente quando a distância chega ao raio do ponto. */}
         {temPonto && (quente || al === 'dentro') && (
-          <circle cx={x} cy={y} r={raioNoMostrador(alvo.ponto.raioM)} clipPath="url(#mostrador)" fill={cor} fillOpacity="0.16" />
+          <circle cx={x} cy={y} r={raioNoMostrador(alvo.ponto.raioM)} clipPath={`url(#${demo ? 'mostrador-demo' : 'mostrador'})`} fill={cor} fillOpacity="0.16" />
         )}
         {temPonto && borda && (
           <circle
@@ -453,7 +418,7 @@ function Mostrador({ alvo, heading, al }: { alvo: Alvo; heading: number | null; 
             strokeDashoffset={borda.comprimento / 2}
             transform={`rotate(${rel - 90} ${C} ${C})`}
             className="transition-[stroke-dasharray,stroke-dashoffset,stroke-width] duration-700"
-            data-testid="borda-acesa"
+            data-testid={demo ? undefined : 'borda-acesa'}
           />
         )}
         {temPonto && !borda && <circle cx={x} cy={y} r="8" fill={cor} />}
@@ -464,7 +429,7 @@ function Mostrador({ alvo, heading, al }: { alvo: Alvo; heading: number | null; 
 }
 
 /** Ponto na bússola: nome e valor. */
-function CartaoAlvo({ alvo, escolhido, trocar, voltarAoMaisPerto }: { alvo: Alvo; escolhido: boolean; trocar: () => void; voltarAoMaisPerto: () => void }) {
+export function CartaoAlvo({ alvo, escolhido, trocar, voltarAoMaisPerto }: { alvo: Alvo; escolhido: boolean; trocar: () => void; voltarAoMaisPerto: () => void }) {
   return (
     <section className="flex items-center gap-3 rounded-2xl border border-borda bg-painel px-3.5 py-3" aria-label="Ponto na bússola">
       <div className="flex grow flex-col">
@@ -512,6 +477,7 @@ export function Balancando({
   titulo: tituloFixo,
   legenda,
   alerta,
+  demo,
 }: {
   picos: number;
   exigidos: number;
@@ -519,6 +485,8 @@ export function Balancando({
   titulo?: string;
   legenda?: string;
   alerta?: boolean;
+  /** Dentro da demonstração do onboarding: sem clarão na tela toda, sem região viva. */
+  demo?: boolean;
 }) {
   const titulo = tituloFixo ?? (picos >= exigidos ? 'Balançou!' : picos === 0 ? 'Balance!' : picos === exigidos - 1 ? 'Mais uma!' : 'Isso! De novo');
   const fatia = 360 / exigidos;
@@ -540,11 +508,11 @@ export function Balancando({
       key={picos}
       className={`flex grow flex-col items-center justify-center gap-6 ${picos > 0 ? 'efeito-tremor' : ''}`}
       style={{ '--amp': `${amp}px`, '--rot': `${(amp / 6).toFixed(1)}deg` } as React.CSSProperties}
-      role="status"
-      aria-live="assertive"
-      data-testid="balancando"
+      role={demo ? undefined : 'status'}
+      aria-live={demo ? undefined : 'assertive'}
+      data-testid={demo ? undefined : 'balancando'}
     >
-      {picos >= exigidos && (
+      {picos >= exigidos && !demo && (
         <Sobreposicao>
           <div className="efeito-clarao pointer-events-none fixed inset-0 z-40 bg-verde" aria-hidden="true" />
         </Sobreposicao>

@@ -40,6 +40,7 @@ import {
   VibrateOffIcon,
   VolumeHighIcon,
   VolumeOffIcon,
+  WalkingIcon,
   WifiOff01Icon,
 } from '@hugeicons/core-free-icons';
 
@@ -47,6 +48,7 @@ import {
 const icones = {
   adicionar: Add01Icon,
   alerta: Alert02Icon,
+  andar: WalkingIcon,
   alertaCirculo: AlertCircleIcon,
   anular: UnavailableIcon,
   avancar: ArrowRight01Icon,
