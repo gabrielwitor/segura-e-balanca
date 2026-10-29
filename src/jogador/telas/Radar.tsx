@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { FAIXA_MORNO_M, FAIXA_QUENTE_M } from '@/dominio/constantes';
+import { FAIXA_MORNO_M } from '@/dominio/constantes';
 import { alcance, type Alcance, type Faixa, type Tendencia } from '@/dominio/radar';
 import { registrarBalancada } from '@/sync/saida';
 import { Icone } from '@/ui/Icone';
@@ -133,7 +133,7 @@ export function Radar({ uid, apelido, dados, sessao, irParaRanking, radar, alvoI
           )}
           {alvo && (
             <>
-              <Mostrador alvo={alvo} heading={heading} leitura={leitura} al={al} />
+              <Mostrador alvo={alvo} heading={heading} al={al} />
               <CartaoAlvo alvo={alvo} escolhido={!!escolhido} trocar={irParaPontos} voltarAoMaisPerto={() => setAlvoId(null)} />
             </>
           )}
@@ -366,6 +366,12 @@ const C = 150;
 /** Raio útil do mostrador (a borda tem as marcas de grau). */
 const R_UTIL = 136;
 
+/**
+ * Distância -> raio no mostrador, em raiz quadrada: o perto fica ampliado sem troca de escala,
+ * então a bola só se aproxima (antes, o zoom do quente a fazia saltar para a borda).
+ */
+const raioNoMostrador = (d: number) => R_UTIL * Math.sqrt(Math.min(d, FAIXA_MORNO_M) / FAIXA_MORNO_M);
+
 /** Raio da borda acesa (o traço fica por dentro das marcas de grau). */
 const R_BORDA = 137;
 const VOLTA_BORDA = 2 * Math.PI * R_BORDA;
@@ -392,19 +398,18 @@ const COR_CHEGOU = '#43e08a';
 
 /**
  * Bússola com um ponto só: direção exata (graus, não setor) e distância real no mostrador.
- * No quente, zoom: o mostrador inteiro vira os últimos 50 m, com a área do ponto e a precisão do GPS.
+ * No quente, aparece a área do ponto; a escala é contínua (raiz quadrada), sem zoom em degrau.
  * Sem bússola, o mostrador fica com o norte para cima.
  */
-function Mostrador({ alvo, heading, leitura, al }: { alvo: Alvo; heading: number | null; leitura: Leitura | null; al: Alcance | null }) {
+function Mostrador({ alvo, heading, al }: { alvo: Alvo; heading: number | null; al: Alcance | null }) {
   const giro = heading ?? 0;
   const m = alvo.medida;
-  const zoom = m?.faixa === 'quente' && !alvo.conquistado;
-  const escala = R_UTIL / FAIXA_QUENTE_M;
+  const quente = m?.faixa === 'quente' && !alvo.conquistado;
   const temPonto = !!m && alvo.rumo != null;
   const rel = (alvo.rumo ?? 0) - giro;
-  // Fora do zoom, o mostrador cobre até o fim do morno, em escala linear; além disso, a borda acesa.
-  const foraDoAlcance = !!m && !zoom && m.d > FAIXA_MORNO_M;
-  const r = m ? Math.min(m.d * (zoom ? escala : R_UTIL / FAIXA_MORNO_M), R_UTIL) : 0;
+  // O mostrador cobre até o fim do morno; além disso, a borda acesa.
+  const foraDoAlcance = !!m && m.d > FAIXA_MORNO_M;
+  const r = m ? raioNoMostrador(m.d) : 0;
   const [x, y] = noCirculo(rel, r);
   const cor = alvo.conquistado ? '#6b8578' : al === 'dentro' ? COR_CHEGOU : COR_BLIP[m?.faixa ?? 'frio'];
   const borda = foraDoAlcance ? bordaAcesa(m.d) : null;
@@ -430,8 +435,10 @@ function Mostrador({ alvo, heading, leitura, al }: { alvo: Alvo; heading: number
             </text>
           );
         })}
-        {temPonto && zoom && leitura && <circle cx={C} cy={C} r={Math.min(leitura.accuracy * escala, R_UTIL)} fill="rgba(232,242,236,.06)" />}
-        {temPonto && zoom && <circle cx={x} cy={y} r={alvo.ponto.raioM * escala} clipPath="url(#mostrador)" fill={cor} fillOpacity="0.16" />}
+        {/* Área do ponto: encosta na seta exatamente quando a distância chega ao raio do ponto. */}
+        {temPonto && (quente || al === 'dentro') && (
+          <circle cx={x} cy={y} r={raioNoMostrador(alvo.ponto.raioM)} clipPath="url(#mostrador)" fill={cor} fillOpacity="0.16" />
+        )}
         {temPonto && borda && (
           <circle
             cx={C}
