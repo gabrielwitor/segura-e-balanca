@@ -14,7 +14,6 @@ test('aba Pontos: escolher põe o ponto na bússola; voltar ao mais perto desfaz
 
   await escolherPonto(page, 2);
   await expect(cartao).toContainText('Ponto 2');
-  await expect(cartao).toContainText('Dica do ponto 2');
   await cartao.getByRole('button', { name: /Voltar ao/ }).click();
   await expect(cartao).toContainText('Ponto 1');
 

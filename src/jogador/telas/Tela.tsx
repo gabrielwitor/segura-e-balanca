@@ -64,8 +64,8 @@ export function Logo({ grande }: { grande?: boolean }) {
 
 /**
  * Painéis e telas por cima do jogo vão direto no <body>: dentro das abas (puxar para atualizar),
- * o Safari do iOS os deixava atrás da barra de navegação.
+ * o Safari do iOS os deixava atrás da barra de navegação. Fora da Tela, a cor do texto vem daqui.
  */
 export function Sobreposicao({ children }: { children: ReactNode }) {
-  return createPortal(children, document.body);
+  return createPortal(<div className="contents text-texto">{children}</div>, document.body);
 }

@@ -3,7 +3,7 @@ import type { Entrada, Fila, Ponto } from '@/dominio/tipos';
 export function ponto(id: string, extra: Partial<Ponto> = {}): Ponto {
   return {
     id, numero: 1, nome: id, lat: -23.5589, lng: -46.7315, raioM: 25,
-    valorBase: 100, passoPct: 0.1, pisoPct: 0.2, dica: '', sacudidas: 4, ativo: true, desativadoEm: null,
+    valorBase: 100, passoPct: 0.1, pisoPct: 0.2, sacudidas: 4, ativo: true, desativadoEm: null,
     ...extra,
   };
 }

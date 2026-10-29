@@ -41,7 +41,7 @@ export async function garantirJogo(): Promise<void> {
   await b.commit();
 }
 
-export type DadosPonto = Pick<Ponto, 'nome' | 'raioM' | 'valorBase' | 'passoPct' | 'pisoPct' | 'dica' | 'sacudidas'>;
+export type DadosPonto = Pick<Ponto, 'nome' | 'raioM' | 'valorBase' | 'passoPct' | 'pisoPct' | 'sacudidas'>;
 
 /** RF-51: clique no mapa cria o ponto com os padrões e a fila na partida atual. */
 export async function criarPonto(lat: number, lng: number, pontos: Ponto[], partida: Partida | null): Promise<string> {
@@ -57,7 +57,6 @@ export async function criarPonto(lat: number, lng: number, pontos: Ponto[], part
     valorBase: 100,
     passoPct: 0.1,
     pisoPct: 0.2,
-    dica: '',
     sacudidas: SACUDIDAS_PADRAO,
     ativo: true,
     desativadoEm: null,

@@ -45,7 +45,6 @@
   --color-perigo: #b42318;
   --color-perigo-texto: #8c2a20;
 
-  --animate-varredura: varredura 4s linear infinite;
   --animate-pulso: pulso 1.4s ease-out infinite;
   --animate-onda: onda 0.9s ease-out forwards;
   --animate-sacode: sacode 0.5s ease-in-out infinite;
@@ -181,19 +180,6 @@
 }
 .efeito-vira {
   animation: vira 0.5s ease-out;
-}
-/* Ponto na bússola: pulsa de leve. */
-@keyframes alvo {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.18);
-  }
-}
-.efeito-alvo {
-  animation: alvo 1.4s ease-in-out infinite;
 }
 .efeito-entra-icone {
   animation: entra-icone 0.6s ease-out;
@@ -456,11 +442,6 @@
   animation: surge-selo 0.4s ease-out 0.5s both;
 }
 
-@keyframes varredura {
-  to {
-    transform: rotate(360deg);
-  }
-}
 @keyframes pulso {
   0% {
     transform: scale(0.6);
@@ -482,8 +463,493 @@
   }
 }
 
+/* Dica 3: aparelho de demonstração. O dedo aperta, o celular balança de cima para baixo
+   e o anel do jogo enche, com as mesmas frases da tela "Balançando". Ciclo de 5 s.
+   Sem animação (movimento reduzido), fica parado em "2 de 4". */
+.efeito-demo-caixa {
+  position: relative;
+  width: 220px;
+  height: 470px;
+}
+.efeito-demo-escala {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 180px;
+  height: 340px;
+  transform: scale(1.22);
+  transform-origin: 0 0;
+}
+@media (max-height: 760px) {
+  .efeito-demo-caixa {
+    width: 162px;
+    height: 346px;
+  }
+  .efeito-demo-escala {
+    transform: scale(0.9);
+  }
+  .efeito-demo-sombra {
+    top: 310px;
+  }
+}
+@media (max-height: 640px) {
+  .efeito-demo-caixa {
+    width: 133px;
+    height: 284px;
+  }
+  .efeito-demo-escala {
+    transform: scale(0.74);
+  }
+  .efeito-demo-sombra {
+    top: 255px;
+  }
+}
+.efeito-demo-aparelho {
+  position: relative;
+  width: 180px;
+  height: 340px;
+  transform-origin: 50% 80%;
+  animation: demo-balanca 5s infinite;
+}
+/* A sombra fica logo abaixo do aparelho (340 px na escala de cada altura de tela). */
+.efeito-demo-sombra {
+  position: absolute;
+  top: 418px;
+  left: 50%;
+  width: 70%;
+  height: 14px;
+  margin-left: -35%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(0 0 0 / 0.6), transparent);
+  opacity: 0.55;
+  animation: demo-sombra 5s infinite;
+}
+.efeito-demo-dedo {
+  transform: translate(0, 8px) scale(0.94);
+  animation: demo-dedo 5s infinite;
+}
+.efeito-demo-botao {
+  background: var(--color-texto);
+  animation: demo-botao 5s infinite;
+}
+.efeito-demo-radar {
+  opacity: 0;
+  animation: demo-radar 5s infinite;
+}
+.efeito-demo-anel {
+  animation: demo-anel 5s infinite;
+}
+.efeito-demo-icone {
+  animation: demo-icone 5s infinite;
+}
+.efeito-demo-ok {
+  opacity: 0;
+  animation: demo-ok 5s infinite;
+}
+.efeito-demo-fatia {
+  stroke-dasharray: 62 62;
+  stroke-dashoffset: 62;
+}
+.efeito-demo-fatia:nth-of-type(1) {
+  stroke-dashoffset: 0;
+  animation: demo-fatia-1 5s infinite;
+}
+.efeito-demo-fatia:nth-of-type(2) {
+  stroke-dashoffset: 0;
+  animation: demo-fatia-2 5s infinite;
+}
+.efeito-demo-fatia:nth-of-type(3) {
+  animation: demo-fatia-3 5s infinite;
+}
+.efeito-demo-fatia:nth-of-type(4) {
+  animation: demo-fatia-4 5s infinite;
+}
+.efeito-demo-frase {
+  position: absolute;
+  inset: 0;
+  text-align: center;
+  white-space: nowrap;
+  opacity: 0;
+}
+.efeito-demo-frase.fixa {
+  opacity: 1;
+}
+.efeito-demo-radar,
+.efeito-demo-anel,
+.efeito-demo-icone,
+.efeito-demo-ok {
+  transform-origin: center;
+}
+@keyframes demo-balanca {
+  0%,
+  24% {
+    transform: none;
+    animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
+  }
+  30%,
+  42%,
+  54%,
+  66% {
+    transform: translateY(24px) rotate(1.5deg);
+    animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
+  }
+  36%,
+  48%,
+  60% {
+    transform: translateY(-24px) rotate(-1.5deg);
+    animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
+  }
+  74%,
+  100% {
+    transform: none;
+  }
+}
+@keyframes demo-sombra {
+  0%,
+  24%,
+  74%,
+  100% {
+    transform: none;
+    opacity: 0.55;
+    animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
+  }
+  30%,
+  42%,
+  54%,
+  66% {
+    transform: scaleX(0.91);
+    opacity: 0.35;
+    animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
+  }
+  36%,
+  48%,
+  60% {
+    transform: scaleX(1.09);
+    opacity: 0.75;
+    animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
+  }
+}
+@keyframes demo-dedo {
+  0% {
+    opacity: 0;
+    transform: translate(52px, 80px) rotate(8deg);
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  13% {
+    opacity: 1;
+    transform: translate(0, 2px);
+    animation-timing-function: ease-in-out;
+  }
+  18%,
+  80% {
+    opacity: 1;
+    transform: translate(0, 8px) scale(0.94);
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  90%,
+  100% {
+    opacity: 0;
+    transform: translate(52px, 80px) rotate(8deg);
+  }
+}
+@keyframes demo-botao {
+  0%,
+  16%,
+  83%,
+  100% {
+    background: var(--color-verde);
+    transform: none;
+  }
+  19%,
+  79% {
+    background: var(--color-texto);
+    transform: scale(0.96);
+  }
+}
+@keyframes demo-radar {
+  0%,
+  17%,
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+  22%,
+  94% {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+}
+@keyframes demo-anel {
+  0%,
+  17% {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  22%,
+  90% {
+    opacity: 1;
+    transform: none;
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  96%,
+  100% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+@keyframes demo-icone {
+  0%,
+  68% {
+    opacity: 1;
+    transform: none;
+  }
+  71%,
+  100% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+@keyframes demo-ok {
+  0%,
+  68% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  73% {
+    opacity: 1;
+    transform: scale(1.15);
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  77%,
+  90% {
+    opacity: 1;
+    transform: none;
+  }
+  96%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes demo-fatia-1 {
+  0%,
+  27% {
+    stroke-dashoffset: 62;
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  31%,
+  90% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  96%,
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+@keyframes demo-fatia-2 {
+  0%,
+  39% {
+    stroke-dashoffset: 62;
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  43%,
+  90% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  96%,
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+@keyframes demo-fatia-3 {
+  0%,
+  51% {
+    stroke-dashoffset: 62;
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  55%,
+  90% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  96%,
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+@keyframes demo-fatia-4 {
+  0%,
+  63% {
+    stroke-dashoffset: 62;
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  67%,
+  90% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  96%,
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+@keyframes demo-f1 {
+  0%,
+  29.5% {
+    opacity: 1;
+    transform: none;
+  }
+  31%,
+  100% {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+}
+.efeito-demo-f1 {
+  animation: demo-f1 5s infinite;
+}
+@keyframes demo-f2 {
+  0%,
+  30% {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  31.5%,
+  53.5% {
+    opacity: 1;
+    transform: none;
+  }
+  55%,
+  100% {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+}
+.efeito-demo-f2 {
+  animation: demo-f2 5s infinite;
+}
+@keyframes demo-f3 {
+  0%,
+  54% {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  55.5%,
+  65.5% {
+    opacity: 1;
+    transform: none;
+  }
+  67%,
+  100% {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+}
+.efeito-demo-f3 {
+  animation: demo-f3 5s infinite;
+}
+@keyframes demo-f4 {
+  0%,
+  66% {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  67.5%,
+  91.5% {
+    opacity: 1;
+    transform: none;
+  }
+  93%,
+  100% {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+}
+.efeito-demo-f4 {
+  animation: demo-f4 5s infinite;
+}
+@keyframes demo-c0 {
+  0%,
+  29.5% {
+    opacity: 1;
+    transform: none;
+  }
+  31%,
+  100% {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+}
+.efeito-demo-c0 {
+  animation: demo-c0 5s infinite;
+}
+@keyframes demo-c1 {
+  0%,
+  30% {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  31.5%,
+  41.5% {
+    opacity: 1;
+    transform: none;
+  }
+  43%,
+  100% {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+}
+.efeito-demo-c1 {
+  animation: demo-c1 5s infinite;
+}
+@keyframes demo-c2 {
+  0%,
+  42% {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  43.5%,
+  53.5% {
+    opacity: 1;
+    transform: none;
+  }
+  55%,
+  100% {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+}
+.efeito-demo-c2 {
+  animation: demo-c2 5s infinite;
+}
+@keyframes demo-c3 {
+  0%,
+  54% {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  55.5%,
+  65.5% {
+    opacity: 1;
+    transform: none;
+  }
+  67%,
+  100% {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+}
+.efeito-demo-c3 {
+  animation: demo-c3 5s infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .animate-varredura,
   .animate-pulso,
   .animate-spin,
   .animate-sacode,
