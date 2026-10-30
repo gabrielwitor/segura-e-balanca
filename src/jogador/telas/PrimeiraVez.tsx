@@ -3,10 +3,11 @@ import { SACUDIDAS_PADRAO } from '@/dominio/constantes';
 import { Icone } from '@/ui/Icone';
 import { destravarSom, feedback } from '../feedback';
 import { permissaoDeMovimento, pedirPermissaoDeMovimento, useBalanco } from '../sensores';
-import { Balancando, IconeDeFaixa } from './Radar';
+import { BannerDemo, DemoBalanco, DemoChegue, DemoEscolha } from './DemoDoJogo';
+import { Balancando } from './Radar';
 
-/** Três dicas e o treino: a bolinha do treino é a 4ª do indicador. */
-const PASSOS = 4;
+/** Quatro dicas e o treino: a bolinha do treino é a 5ª do indicador. */
+const PASSOS = 5;
 
 /** Segurando sem nenhuma leitura do acelerômetro por esse tempo: aparelho sem sensor (ou bloqueado). */
 const LIMITE_SEM_SENSOR_MS = 2500;
@@ -14,12 +15,12 @@ const LIMITE_SEM_SENSOR_MS = 2500;
 /** Folga para soltar o dedo sem perder o progresso (igual ao botão do jogo). */
 const FOLGA_SOLTAR_MS = 800;
 
-/** Tela 5 · primeira vez no radar: três dicas em tela cheia e um treino de balançar. */
+/** Tela 5 · primeira vez no radar: quatro dicas em tela cheia e um treino de balançar. */
 export function PrimeiraVez({ aoFechar }: { aoFechar: () => void }) {
   const [n, setN] = useState(0);
   return (
     <div className="fixed inset-0 z-50 overflow-auto bg-noite text-texto">
-      {n < 3 ? (
+      {n < DICAS.length ? (
         <Dica n={n} aoPular={aoFechar} aoAvancar={() => setN(n + 1)} />
       ) : (
         <Treino aoTerminar={aoFechar} />
@@ -52,8 +53,9 @@ function Moldura({ children, passo, pular }: { children: ReactNode; passo?: numb
 
 const DICAS: { titulo: string; texto: string; ilustracao: () => ReactNode }[] = [
   { titulo: 'Siga a temperatura', texto: 'Frio, morno ou quente: vá esquentando.', ilustracao: Termometros },
-  { titulo: 'Escolha um ponto', texto: 'Veja quanto cada um vale e toque para seguir.', ilustracao: Pontos },
-  { titulo: 'Segure e balance', texto: `Na área, segure o botão e balance ${SACUDIDAS_PADRAO} vezes.`, ilustracao: DemonstracaoDoBalanco },
+  { titulo: 'Escolha um ponto', texto: 'Veja quanto cada um vale e toque para seguir.', ilustracao: DemoEscolha },
+  { titulo: 'Chegue até o ponto', texto: 'Ande na direção da bola até ficar verde.', ilustracao: DemoChegue },
+  { titulo: 'Segure e balance', texto: `Na área, segure o botão e balance ${SACUDIDAS_PADRAO} vezes.`, ilustracao: DemoBalanco },
 ];
 
 function Dica({ n, aoPular, aoAvancar }: { n: number; aoPular: () => void; aoAvancar: () => void }) {
@@ -88,155 +90,12 @@ function Dica({ n, aoPular, aoAvancar }: { n: number; aoPular: () => void; aoAva
   );
 }
 
-function Barras({ nivel, cor }: { nivel: number; cor: string }) {
-  return (
-    <div className="flex h-10 items-end gap-1">
-      {[1, 2, 3, 4, 5].map((i) => (
-        <span key={i} className={`w-2 rounded-[3px] ${i <= nivel ? cor : 'bg-white/15'}`} style={{ height: 12 + i * 5 }} />
-      ))}
-    </div>
-  );
-}
-
 function Termometros() {
   return (
-    <>
-      {(
-        [
-          ['Frio', 1, 'bg-frio text-frio-texto opacity-55', 'bg-frio-texto', 'neve'],
-          ['Morno', 3, 'bg-morno text-morno-texto opacity-80', 'bg-morno-texto', 'termometro'],
-          ['Quente', 5, 'bg-quente text-quente-tinta', 'bg-quente-tinta', 'fogo'],
-        ] as const
-      ).map(([nome, nivel, cls, barra, icone]) => (
-        <div key={nome} className={`flex items-center gap-4 rounded-[18px] px-4 py-3.5 ${cls}`}>
-          <IconeDeFaixa icone={icone} entrando={false} />
-          <div className="grow font-display text-[28px] leading-none font-bold">{nome}</div>
-          <Barras nivel={nivel} cor={barra} />
-        </div>
-      ))}
-    </>
-  );
-}
-
-function Pontos() {
-  return (
-    <>
-      {(
-        [
-          ['Ponto 1', 'vale 100 pts', 'morno', 'bg-morno text-morno-texto', true],
-          ['Ponto 2', 'vale 60 pts', 'frio', 'bg-frio text-frio-texto', false],
-        ] as const
-      ).map(([nome, valor, faixa, cor, escolhida]) => (
-        <div
-          key={nome}
-          className={`flex items-center gap-3 rounded-[18px] border-2 px-4 py-3.5 ${escolhida ? 'border-texto bg-painel' : 'border-borda'}`}
-        >
-          <span className={`m-[3px] size-[18px] rounded-full shadow-[0_0_0_5px_rgba(244,247,245,0.18)] ${escolhida ? 'bg-[#F4F7F5]' : 'bg-fraco'}`} />
-          <span className="flex grow flex-col">
-            <span className="text-[17px] font-bold">{nome}</span>
-            <span className="text-[13px] text-suave">{valor}</span>
-          </span>
-          <span className={`rounded-full px-3 py-1 text-sm font-bold ${cor}`}>{faixa}</span>
-        </div>
-      ))}
-    </>
-  );
-}
-
-/** Fatias do anel da demonstração (raio 48, 4 partes com folga), em coordenadas de 120×120. */
-const FATIAS_DEMO = [0, 1, 2, 3].map((i) => {
-  const ponto = (g: number) => {
-    const a = ((g - 90) * Math.PI) / 180;
-    return `${(60 + 48 * Math.cos(a)).toFixed(1)} ${(60 + 48 * Math.sin(a)).toFixed(1)}`;
-  };
-  return `M ${ponto(i * 90 + 8)} A 48 48 0 0 1 ${ponto((i + 1) * 90 - 8)}`;
-});
-
-/** Mesmas frases da tela "Balançando", cada uma na janela do seu balanço (ver .efeito-demo-* no CSS). */
-const FRASES_DEMO = [
-  ['f1', 'Balance!'],
-  ['f2', 'Isso! De novo'],
-  ['f3', 'Mais uma!'],
-  ['f4', 'Balançou!'],
-] as const;
-const CONTAGEM_DEMO = ['c0', 'c1', 'c2', 'c3'] as const;
-
-/**
- * Dica 3: um celular de demonstração. O dedo segura o botão, o aparelho balança de cima para baixo
- * e o anel do jogo enche. Com movimento reduzido, fica parado em "2 de 4".
- */
-function DemonstracaoDoBalanco() {
-  return (
-    <div className="flex justify-center">
-      <div className="efeito-demo-caixa">
-        <div className="efeito-demo-sombra" />
-        <div className="efeito-demo-escala">
-          <div className="efeito-demo-aparelho">
-            {[
-              'top-[70px] -left-0.5 h-[22px]',
-              'top-[104px] -left-0.5 h-10',
-              'top-[152px] -left-0.5 h-10',
-              'top-[116px] -right-0.5 h-[58px]',
-            ].map((pos) => (
-              <span key={pos} className={`absolute w-[3px] rounded-sm bg-[#3a433e] ${pos}`} />
-            ))}
-            <div
-              className="relative size-full rounded-[34px] p-[5px] shadow-[0_0_0_1px_#0b1410,inset_0_0_0_1px_rgba(255,255,255,0.12)]"
-              style={{ background: 'linear-gradient(145deg, #5b6660, #2a312d 40%, #4a544f)' }}
-            >
-              <div className="relative size-full overflow-hidden rounded-[29px] bg-radar shadow-[0_0_0_3px_#050807]">
-                <span className="absolute top-2.5 left-1/2 z-10 -ml-[29px] h-[17px] w-[58px] rounded-[10px] bg-black" />
-                <svg viewBox="0 0 100 100" className="efeito-demo-radar absolute top-11 left-1/2 -ml-[52px] size-[104px]">
-                  <circle cx="50" cy="50" r="47" className="fill-noite stroke-borda" strokeWidth="2" />
-                  <circle cx="62" cy="40" r="10" className="fill-verde" fillOpacity="0.18" />
-                  <circle cx="62" cy="40" r="4" className="fill-verde" />
-                  <path d="M50 44 L54 55 L50 53 L46 55 Z" className="fill-texto" />
-                </svg>
-                <div className="efeito-demo-anel absolute inset-x-0 top-11 flex flex-col items-center gap-2.5">
-                  <div className="relative size-[120px]">
-                    <svg viewBox="0 0 120 120" className="size-full">
-                      {FATIAS_DEMO.map((d) => (
-                        <path key={d} d={d} fill="none" strokeWidth="10" strokeLinecap="round" className="stroke-[#1F3329]" />
-                      ))}
-                      <g>
-                        {FATIAS_DEMO.map((d) => (
-                          <path key={d} d={d} fill="none" strokeWidth="10" strokeLinecap="round" className="efeito-demo-fatia stroke-verde" />
-                        ))}
-                      </g>
-                    </svg>
-                    <span className="efeito-demo-icone absolute inset-0 flex items-center justify-center text-verde">
-                      <Icone nome="balancar" tamanho={36} />
-                    </span>
-                    <span className="efeito-demo-ok absolute inset-0 flex items-center justify-center text-verde">
-                      <Icone nome="check" tamanho={40} strokeWidth={2.4} />
-                    </span>
-                  </div>
-                  <div className="relative h-[26px] w-[150px] font-display text-xl leading-[26px] font-bold">
-                    {FRASES_DEMO.map(([k, texto]) => (
-                      <span key={k} className={`efeito-demo-frase efeito-demo-${k} ${k === 'f2' ? 'fixa' : ''}`}>
-                        {texto}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="relative -mt-1.5 h-[18px] w-[150px] text-[13px] leading-[18px] font-semibold text-[#C6D6CD]">
-                    {CONTAGEM_DEMO.map((k, i) => (
-                      <span key={k} className={`efeito-demo-frase efeito-demo-${k} ${k === 'c2' ? 'fixa' : ''}`}>
-                        {i} de {SACUDIDAS_PADRAO}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div className="efeito-demo-botao absolute inset-x-3.5 bottom-4 flex h-10 items-center justify-center rounded-xl font-display text-xs font-bold text-verde-tinta">
-                  Segura e balança!
-                </div>
-              </div>
-            </div>
-            <span className="efeito-demo-dedo absolute top-[297px] left-14 text-texto">
-              <Icone nome="toque" tamanho={76} strokeWidth={1.4} />
-            </span>
-          </div>
-        </div>
-      </div>
+    <div className="flex flex-col gap-3">
+      <BannerDemo d={320} tendencia="esfriando" />
+      <BannerDemo d={100} tendencia="esquentando" />
+      <BannerDemo d={30} tendencia="esquentando" />
     </div>
   );
 }
@@ -358,7 +217,7 @@ function Treino({ aoTerminar }: { aoTerminar: () => void }) {
 
   if (fase === 'sem-sensor')
     return (
-      <Moldura passo={3}>
+      <Moldura passo={4}>
         <div className="flex grow flex-col items-center justify-center gap-5 text-center" role="alert">
           <span className="flex size-24 items-center justify-center rounded-[28px] bg-[#3A2410] text-[#FFB08A]">
             <Icone nome="balancar" tamanho={52} />
@@ -384,7 +243,7 @@ function Treino({ aoTerminar }: { aoTerminar: () => void }) {
     );
 
   return (
-    <Moldura passo={3} pular={{ rotulo: 'Pular treino', acao: aoTerminar }}>
+    <Moldura passo={4} pular={{ rotulo: 'Pular treino', acao: aoTerminar }}>
       <div data-testid="treino" className="flex grow flex-col">
         {armado ? (
           <Balancando picos={picos} exigidos={exigidos} fraco={fraco} />
